@@ -21,7 +21,7 @@ export const SITIO = {
    *  sobrescribir con NEXT_PUBLIC_META_PIXEL_ID / NEXT_PUBLIC_TIKTOK_PIXEL_ID. */
   pixeles: {
     meta: process.env.NEXT_PUBLIC_META_PIXEL_ID ?? "24878647091813468",
-    tiktok: process.env.NEXT_PUBLIC_TIKTOK_PIXEL_ID ?? "",
+    tiktok: process.env.NEXT_PUBLIC_TIKTOK_PIXEL_ID ?? "DAQ48QRC77U77GG14PMG",
   },
 } as const;
 
