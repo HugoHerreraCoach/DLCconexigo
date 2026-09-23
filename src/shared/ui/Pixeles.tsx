@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import Script from "next/script";
 import { SITIO } from "@/config/sitio";
 import { origenDeEnlace, rastrearContacto } from "@/shared/lib/pixeles";
+import { registrar } from "@/shared/lib/registro";
 
 /* Carga el píxel de Meta y el de TikTok (cada uno solo si tiene ID) y registra
    PageView. Los clics a WhatsApp se escuchan aquí con un único listener en el
@@ -31,6 +32,7 @@ ttq.load('${tiktok}');ttq.page();}(window,document,'ttq');`;
 
 export function Pixeles() {
   useEffect(() => {
+    registrar("visita");
     const alClic = (e: MouseEvent) => {
       const enlace = (e.target as Element).closest?.("a[href*='wa.me/']");
       if (enlace instanceof HTMLAnchorElement) rastrearContacto(origenDeEnlace(enlace.href));

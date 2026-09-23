@@ -1,8 +1,9 @@
+import { registrar } from "@/shared/lib/registro";
 import { MENSAJES } from "@/shared/lib/whatsapp";
 
-/* Eventos de conversión para Meta y TikTok. Los componentes llaman a estas
-   funciones y no a fbq/ttq directamente: si un píxel no está cargado (ID vacío,
-   bloqueador de anuncios) la llamada simplemente no hace nada. */
+/* Eventos de conversión para Meta, TikTok y el registro propio del panel. Los
+   componentes llaman a estas funciones y no a fbq/ttq directamente: si un píxel
+   no está cargado (ID vacío, bloqueador de anuncios) la llamada no hace nada. */
 
 type Fbq = (accion: "track" | "trackCustom", evento: string, datos?: Record<string, unknown>) => void;
 type Ttq = { track: (evento: string, datos?: Record<string, unknown>) => void };
@@ -20,6 +21,7 @@ const CONTENIDO = { content_name: "Finca Algarrobo", content_category: "Terrenos
 export function rastrearLead(datos: { motivo: string; inicial: string; ubicacion: string; paso: string }) {
   window.fbq?.("track", "Lead", { ...CONTENIDO, ...datos });
   window.ttq?.track("SubmitForm", { ...CONTENIDO, description: datos.paso });
+  registrar("lead", { datos });
 }
 
 /** Clic en cualquier botón/enlace de WhatsApp. `origen` dice qué CTA fue
@@ -27,6 +29,7 @@ export function rastrearLead(datos: { motivo: string; inicial: string; ubicacion
 export function rastrearContacto(origen: string) {
   window.fbq?.("track", "Contact", { ...CONTENIDO, origen });
   window.ttq?.track("Contact", { ...CONTENIDO, description: origen });
+  registrar("contacto", { origen });
 }
 
 /** Deduce qué CTA se pulsó a partir del mensaje del enlace wa.me. */
