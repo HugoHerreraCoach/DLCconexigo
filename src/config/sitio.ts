@@ -17,6 +17,12 @@ export const SITIO = {
   ciudad: "Chiclayo",
   direccion: "Carretera a Ferreñafe, Capote — Chiclayo, Lambayeque",
   mapa: "https://www.google.com/maps/search/?api=1&query=Capote+Carretera+a+Ferre%C3%B1afe+Chiclayo",
+  /** Píxeles de publicidad. Vacío = ese píxel no se carga. Se pueden
+   *  sobrescribir con NEXT_PUBLIC_META_PIXEL_ID / NEXT_PUBLIC_TIKTOK_PIXEL_ID. */
+  pixeles: {
+    meta: process.env.NEXT_PUBLIC_META_PIXEL_ID ?? "24878647091813468",
+    tiktok: process.env.NEXT_PUBLIC_TIKTOK_PIXEL_ID ?? "",
+  },
 } as const;
 
 export const OFERTA = {
