@@ -3,11 +3,11 @@ import Link from "next/link";
 import { AlertTriangle, ArrowDownRight, ArrowUpRight, CheckCircle2, LogOut, Settings } from "lucide-react";
 import { salir } from "@/app/panel/acciones";
 import { RANGOS, type Metricas, type ResultadoMetricas, type Totales } from "@/server/metricas";
-import type { Plataforma } from "@/server/plataformas";
+import type { Plataforma, ResultadoCampanasMeta } from "@/server/plataformas";
 import { GraficoColumnas, type Serie } from "@/views/panel/GraficoColumnas";
 
 /* Panel de medición: registro propio (tráfico real, sin bloqueadores) arriba,
-   y lo que reportan los píxeles de Meta y TikTok abajo. */
+   y abajo lo que reportan las plataformas (campañas de Meta, píxel de TikTok). */
 
 const FUENTES: Record<string, string> = {
   meta: "Meta (Facebook / Instagram)",
@@ -220,13 +220,115 @@ function TablaLeads({ m }: { m: Metricas }) {
   );
 }
 
+const ESTADOS_META: Record<string, string> = {
+  ACTIVE: "Activa",
+  PAUSED: "Pausada",
+  CAMPAIGN_PAUSED: "Pausada",
+  ARCHIVED: "Archivada",
+  DELETED: "Eliminada",
+  IN_PROCESS: "En revisión",
+  WITH_ISSUES: "Con problemas",
+};
+
+function ErrorApi({ nombre, mensaje }: { nombre: string; mensaje?: string }) {
+  return (
+    <p className="flex gap-2 rounded-xl bg-red-500/10 p-3 text-sm text-red-200">
+      <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+      <span>
+        {nombre} respondió con error: <span className="break-all">{mensaje}</span>
+      </span>
+    </p>
+  );
+}
+
+function Cifra({ titulo, valor, nota }: { titulo: string; valor: string; nota?: string }) {
+  return (
+    <div className="rounded-xl border border-borde p-3">
+      <p className="text-xs text-tinta-2">{titulo}</p>
+      <p className="mt-1 font-display text-xl font-semibold tabular-nums">{valor}</p>
+      {nota && <p className="mt-0.5 text-xs text-tinta-3">{nota}</p>}
+    </div>
+  );
+}
+
+function CampanasMeta({ r }: { r: ResultadoCampanasMeta }) {
+  const titulo = "Campañas de Meta";
+  if (r.estado === "sin-configurar")
+    return (
+      <Seccion titulo={titulo}>
+        <p className="flex items-center gap-2 text-sm text-tinta">
+          <Settings className="size-4 text-dlc" aria-hidden="true" />
+          Falta el token de Meta: guárdalo en Vercel como META_ACCESS_TOKEN (usuario del sistema con ads_read).
+        </p>
+      </Seccion>
+    );
+  if (r.estado === "error")
+    return (
+      <Seccion titulo={titulo}>
+        <ErrorApi nombre="Meta" mensaje={r.mensaje} />
+      </Seccion>
+    );
+
+  const dinero = new Intl.NumberFormat("es-PE", { style: "currency", currency: r.moneda });
+  const costo = (gasto: number, contactos: number) => (contactos > 0 ? dinero.format(gasto / contactos) : "—");
+  const t = r.filas.reduce(
+    (a, f) => ({
+      gasto: a.gasto + f.gasto,
+      formularios: a.formularios + f.formularios,
+      conversaciones: a.conversaciones + f.conversaciones,
+      visitasWeb: a.visitasWeb + f.visitasWeb,
+    }),
+    { gasto: 0, formularios: 0, conversaciones: 0, visitasWeb: 0 },
+  );
+
+  return (
+    <Seccion titulo={titulo} nota={`Datos de Meta Ads · ${r.desde} → ${r.hasta} · solo campañas de Finca Algarrobo`}>
+      {r.filas.length === 0 ? (
+        <Vacio texto="Ninguna campaña de Finca Algarrobo tuvo actividad en este período." />
+      ) : (
+        <>
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+            <Cifra titulo="Gasto" valor={dinero.format(t.gasto)} />
+            <Cifra titulo="Formularios de Meta" valor={num.format(t.formularios)} nota="Llenados dentro de FB/IG" />
+            <Cifra titulo="Conversaciones" valor={num.format(t.conversaciones)} nota="WhatsApp / Messenger" />
+            <Cifra titulo="Visitas a la web" valor={num.format(t.visitasWeb)} nota="Desde los anuncios" />
+            <Cifra titulo="Costo por contacto" valor={costo(t.gasto, t.formularios + t.conversaciones)} nota="Gasto / (formularios + conversaciones)" />
+          </div>
+          <div className="mt-4 overflow-x-auto">
+            <table className="w-full min-w-[760px] text-left text-sm">
+              <thead>
+                <tr className="text-xs text-tinta-3">
+                  <th className="pb-2 font-normal">Campaña</th>
+                  <th className="pb-2 font-normal">Estado</th>
+                  <th className="pb-2 text-right font-normal">Gasto</th>
+                  <th className="pb-2 text-right font-normal">Formularios</th>
+                  <th className="pb-2 text-right font-normal">Conversaciones</th>
+                  <th className="pb-2 text-right font-normal">Visitas web</th>
+                  <th className="pb-2 text-right font-normal">Costo / contacto</th>
+                </tr>
+              </thead>
+              <tbody className="tabular-nums">
+                {r.filas.map((f) => (
+                  <tr key={f.id} className="border-t border-borde">
+                    <td className="py-2.5 pr-4">{f.nombre}</td>
+                    <td className="py-2.5 pr-4 text-tinta-2">{ESTADOS_META[f.estado] ?? f.estado}</td>
+                    <td className="py-2.5 text-right">{dinero.format(f.gasto)}</td>
+                    <td className="py-2.5 text-right">{num.format(f.formularios)}</td>
+                    <td className="py-2.5 text-right">{num.format(f.conversaciones)}</td>
+                    <td className="py-2.5 text-right">{num.format(f.visitasWeb)}</td>
+                    <td className="py-2.5 text-right text-tinta-2">{costo(f.gasto, f.formularios + f.conversaciones)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
+    </Seccion>
+  );
+}
+
 const PASOS_PLATAFORMA: Record<Plataforma["nombre"], string[]> = {
-  Meta: [
-    "Business Settings → Usuarios → Usuarios del sistema → crear uno (Admin).",
-    "Asignarle el píxel/dataset 24878647091813468.",
-    "Generar token: app conectada, caducidad «Nunca», permisos ads_read + business_management.",
-    "Guardarlo en Vercel como META_ACCESS_TOKEN.",
-  ],
   TikTok: [
     "Crear una app de desarrollador en business-api.tiktok.com (Marketing API) y autorizar la cuenta publicitaria.",
     "Canjear el auth_code por el access token de larga duración.",
@@ -259,14 +361,7 @@ function TarjetaPlataforma({ p }: { p: Plataforma }) {
           <Vacio texto={`${p.nombre} aún no reporta eventos en este período.`} />
         ))}
 
-      {p.estado === "error" && (
-        <p className="flex gap-2 rounded-xl bg-red-500/10 p-3 text-sm text-red-200">
-          <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-          <span>
-            {p.nombre} respondió con error: <span className="break-all">{p.mensaje}</span>
-          </span>
-        </p>
-      )}
+      {p.estado === "error" && <ErrorApi nombre={p.nombre} mensaje={p.mensaje} />}
 
       {p.estado === "sin-configurar" && (
         <div className="text-sm text-tinta-2">
@@ -295,9 +390,9 @@ function Aviso({ tono, children }: { tono: "info" | "error"; children: React.Rea
   );
 }
 
-type Props = { dias: number; metricas: ResultadoMetricas; plataformas: Plataforma[] };
+type Props = { dias: number; metricas: ResultadoMetricas; meta: ResultadoCampanasMeta; plataformas: Plataforma[] };
 
-export function PanelView({ dias, metricas, plataformas }: Props) {
+export function PanelView({ dias, metricas, meta, plataformas }: Props) {
   return (
     <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
       <header className="flex flex-wrap items-center justify-between gap-4">
@@ -379,6 +474,7 @@ export function PanelView({ dias, metricas, plataformas }: Props) {
         )}
 
         <h2 className="pt-4 font-display text-lg font-semibold">Lo que reportan las plataformas</h2>
+        <CampanasMeta r={meta} />
         <div className="grid gap-4 lg:grid-cols-2">
           {plataformas.map((p) => (
             <TarjetaPlataforma key={p.nombre} p={p} />

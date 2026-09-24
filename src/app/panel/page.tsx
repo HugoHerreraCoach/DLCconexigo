@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { RANGOS, obtenerMetricas } from "@/server/metricas";
-import { estadisticasMeta, estadisticasTikTok } from "@/server/plataformas";
+import { campanasMeta, estadisticasTikTok } from "@/server/plataformas";
 import { panelConfigurado, sesionValida } from "@/server/sesion-panel";
 import { Ingreso, PanelSinConfigurar } from "@/views/panel/Ingreso";
 import { PanelView } from "@/views/panel/PanelView";
@@ -20,7 +20,7 @@ export default async function Panel({ searchParams }: Props) {
   if (!(await sesionValida())) return <Ingreso error={error === "1"} />;
 
   const dias = RANGOS.find((x) => String(x.dias) === r)?.dias ?? 7;
-  const [metricas, meta, tiktok] = await Promise.all([obtenerMetricas(dias), estadisticasMeta(dias), estadisticasTikTok(dias)]);
+  const [metricas, meta, tiktok] = await Promise.all([obtenerMetricas(dias), campanasMeta(dias), estadisticasTikTok(dias)]);
 
-  return <PanelView dias={dias} metricas={metricas} plataformas={[meta, tiktok]} />;
+  return <PanelView dias={dias} metricas={metricas} meta={meta} plataformas={[tiktok]} />;
 }
