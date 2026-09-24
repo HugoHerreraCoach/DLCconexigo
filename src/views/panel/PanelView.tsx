@@ -335,8 +335,9 @@ export function PanelView({ dias, metricas, plataformas }: Props) {
           <Aviso tono="info">
             <p className="font-semibold">Falta conectar la base de datos del registro propio.</p>
             <p className="mt-1 text-tinta-2">
-              En Vercel → proyecto → <em>Storage</em> → crea una base <strong>Neon (Postgres)</strong> y conéctala al proyecto (crea{" "}
-              <code>DATABASE_URL</code>). Tras volver a desplegar, las visitas empiezan a contarse solas.
+              En Vercel → proyecto → <em>Settings → Environment Variables</em> agrega <code>DATABASE_URL</code> con la cadena de
+              conexión de <strong>Supabase</strong> (botón <em>Connect</em> → <em>Transaction pooler</em>, puerto 6543). Tras volver a
+              desplegar, las visitas empiezan a contarse solas.
             </p>
           </Aviso>
         )}
