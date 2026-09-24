@@ -17,8 +17,9 @@ export type Totales = { visitas: number; visitantes: number; contactos: number; 
 export type Dia = { dia: string; visitas: number; contactos: number; leads: number };
 export type FilaFuente = { fuente: string; visitas: number; visitantes: number; contactos: number; leads: number };
 export type FilaCampana = FilaFuente & { campana: string };
-export type FilaOrigen = { origen: string; contactos: number };
-export type Lead = { creado: string; fuente: string; campana: string | null; datos: Record<string, string> | null };
+/** Cuántos eventos generó cada elemento del catálogo src/config/rastros.ts. */
+export type FilaOrigen = { origen: string; tipo: "contacto" | "lead"; total: number };
+export type Lead = { creado: string; fuente: string; campana: string | null; origen: string | null; datos: Record<string, string> | null };
 
 export type Metricas = {
   totales: Totales;
@@ -72,10 +73,10 @@ export async function obtenerMetricas(dias: number): Promise<ResultadoMetricas> 
     const campanas = await db<FilaCampana[]>`SELECT campana, fuente, ${conteos()} FROM eventos
                         WHERE creado >= ${desde} AND campana IS NOT NULL
                         GROUP BY campana, fuente ORDER BY leads DESC, contactos DESC, visitas DESC LIMIT 20`;
-    const origenes = await db<FilaOrigen[]>`SELECT coalesce(origen, 'otro') AS origen, count(*)::int AS contactos FROM eventos
-                       WHERE creado >= ${desde} AND tipo = 'contacto'
-                       GROUP BY 1 ORDER BY contactos DESC`;
-    const leads = await db<Lead[]>`SELECT to_char(creado AT TIME ZONE ${ZONA}, 'YYYY-MM-DD HH24:MI') AS creado, fuente, campana, datos
+    const origenes = await db<FilaOrigen[]>`SELECT coalesce(origen, 'sin-identificar') AS origen, tipo, count(*)::int AS total
+                       FROM eventos WHERE creado >= ${desde} AND tipo IN ('contacto', 'lead')
+                       GROUP BY 1, 2 ORDER BY total DESC`;
+    const leads = await db<Lead[]>`SELECT to_char(creado AT TIME ZONE ${ZONA}, 'YYYY-MM-DD HH24:MI') AS creado, fuente, campana, origen, datos
                  FROM eventos WHERE creado >= ${desde} AND tipo = 'lead'
                  ORDER BY eventos.creado DESC LIMIT 25`;
 

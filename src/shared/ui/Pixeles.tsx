@@ -2,13 +2,14 @@
 
 import { useEffect } from "react";
 import Script from "next/script";
+import { esRastro } from "@/config/rastros";
 import { SITIO } from "@/config/sitio";
-import { origenDeEnlace, rastrearContacto } from "@/shared/lib/pixeles";
+import { rastrearContacto } from "@/shared/lib/pixeles";
 import { registrar } from "@/shared/lib/registro";
 
 /* Carga el píxel de Meta y el de TikTok (cada uno solo si tiene ID) y registra
    PageView. Los clics a WhatsApp se escuchan aquí con un único listener en el
-   documento, así no hay que tocar cada CTA de la landing. */
+   documento; cada enlace se identifica con marcaRastro() (src/config/rastros.ts). */
 
 const { meta, tiktok } = SITIO.pixeles;
 
@@ -35,7 +36,11 @@ export function Pixeles() {
     registrar("visita");
     const alClic = (e: MouseEvent) => {
       const enlace = (e.target as Element).closest?.("a[href*='wa.me/']");
-      if (enlace instanceof HTMLAnchorElement) rastrearContacto(origenDeEnlace(enlace.href));
+      // El id sale del atributo data-rastro (marcaRastro en src/config/rastros.ts).
+      if (enlace instanceof HTMLAnchorElement) {
+        const id = enlace.dataset.rastro;
+        rastrearContacto(esRastro(id) ? id : "sin-identificar");
+      }
     };
     document.addEventListener("click", alClic, { capture: true });
     return () => document.removeEventListener("click", alClic, { capture: true });

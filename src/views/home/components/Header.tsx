@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Image from "next/image";
 import { AnimatePresence, motion } from "framer-motion";
 import { Menu, X } from "lucide-react";
+import { marcaRastro } from "@/config/rastros";
 import { NAVEGACION } from "@/config/sitio";
 import { EASE } from "@/shared/lib/motion";
 import { enlaceWhatsApp, MENSAJES } from "@/shared/lib/whatsapp";
@@ -54,6 +55,7 @@ export function Header() {
           <div className="flex items-center gap-2">
             <a
               href={enlaceWhatsApp(MENSAJES.visita)}
+              {...marcaRastro("header-agendar-visita")}
               target="_blank"
               rel="noopener noreferrer"
               className="hidden h-11 items-center rounded-xl bg-dlc px-5 text-sm font-semibold text-neutral-950 transition-colors hover:bg-dlc-claro sm:inline-flex"
@@ -98,6 +100,7 @@ export function Header() {
                 <li className="px-1 pt-2">
                   <a
                     href={enlaceWhatsApp(MENSAJES.visita)}
+                    {...marcaRastro("menu-movil-agendar-visita")}
                     target="_blank"
                     rel="noopener noreferrer"
                     onClick={() => setAbierto(false)}

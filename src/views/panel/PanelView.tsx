@@ -2,6 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { AlertTriangle, ArrowDownRight, ArrowUpRight, CheckCircle2, LogOut, Settings } from "lucide-react";
 import { salir } from "@/app/panel/acciones";
+import { esRastro, RASTROS } from "@/config/rastros";
 import { RANGOS, type Metricas, type ResultadoMetricas, type Totales } from "@/server/metricas";
 import type { Plataforma, ResultadoCampanasMeta } from "@/server/plataformas";
 import { GraficoColumnas, type Serie } from "@/views/panel/GraficoColumnas";
@@ -17,15 +18,11 @@ const FUENTES: Record<string, string> = {
   directo: "Directo / sin origen",
 };
 
-const ORIGENES: Record<string, string> = {
-  visita: "Agendar visita",
-  cuotas: "Plan de cuotas",
-  ficha: "Ficha del proyecto",
-  video: "Video recorrido",
-  documentos: "Documentación",
-  general: "Consulta general",
-  otro: "Otro",
-};
+/** Nombre legible de un elemento según el catálogo src/config/rastros.ts. */
+function nombreRastro(id: string | null) {
+  if (!id) return "—";
+  return esRastro(id) ? RASTROS[id].nombre : `${id} (no está en el catálogo)`;
+}
 
 // Paleta categórica validada (modo oscuro), en orden fijo: slot 1 azul, slot 2 naranja.
 const SERIE_VISITAS: Serie[] = [{ clave: "visitas", etiqueta: "Visitas", color: "var(--color-dlc)" }];
@@ -140,17 +137,21 @@ function TablaFuentes({ m }: { m: Metricas }) {
 }
 
 function ListaOrigenes({ m }: { m: Metricas }) {
-  if (m.origenes.length === 0) return <Vacio texto="Aún no hay clics a WhatsApp." />;
-  const maximo = Math.max(...m.origenes.map((o) => o.contactos));
+  if (m.origenes.length === 0) return <Vacio texto="Aún no hay clics a WhatsApp ni formularios." />;
+  const maximo = Math.max(...m.origenes.map((o) => o.total));
   return (
     <ul className="space-y-3 text-sm">
       {m.origenes.map((o) => (
-        <li key={o.origen}>
-          <span className="flex justify-between">
-            <span>{ORIGENES[o.origen] ?? o.origen}</span>
-            <span className="tabular-nums">{num.format(o.contactos)}</span>
+        <li key={`${o.origen}-${o.tipo}`}>
+          <span className="flex justify-between gap-3">
+            <span className={o.origen === "sin-identificar" ? "text-amber-300" : undefined}>{nombreRastro(o.origen)}</span>
+            <span className="tabular-nums">{num.format(o.total)}</span>
           </span>
-          <Barra valor={o.contactos} maximo={maximo} />
+          <span className="mb-1 block text-xs text-tinta-3">
+            {o.tipo === "lead" ? "Formulario" : "WhatsApp"}
+            {esRastro(o.origen) && ` · ${RASTROS[o.origen].seccion}`}
+          </span>
+          <Barra valor={o.total} maximo={maximo} />
         </li>
       ))}
     </ul>
@@ -192,10 +193,11 @@ function TablaLeads({ m }: { m: Metricas }) {
   if (m.leads.length === 0) return <Vacio texto="Aún no hay formularios enviados en este período." />;
   return (
     <div className="overflow-x-auto">
-      <table className="w-full min-w-[640px] text-left text-sm">
+      <table className="w-full min-w-[820px] text-left text-sm">
         <thead>
           <tr className="text-xs text-tinta-3">
             <th className="pb-2 font-normal">Fecha</th>
+            <th className="pb-2 font-normal">Formulario</th>
             <th className="pb-2 font-normal">Fuente</th>
             <th className="pb-2 font-normal">Lo quiere para</th>
             <th className="pb-2 font-normal">Inicial</th>
@@ -207,6 +209,7 @@ function TablaLeads({ m }: { m: Metricas }) {
           {m.leads.map((l, i) => (
             <tr key={i} className="border-t border-borde">
               <td className="py-2.5 pr-4 whitespace-nowrap text-tinta-2 tabular-nums">{l.creado}</td>
+              <td className="py-2.5 pr-4">{nombreRastro(l.origen)}</td>
               <td className="py-2.5 pr-4">{FUENTES[l.fuente] ?? l.fuente}</td>
               <td className="py-2.5 pr-4">{l.datos?.motivo}</td>
               <td className="py-2.5 pr-4">{l.datos?.inicial}</td>
@@ -460,7 +463,7 @@ export function PanelView({ dias, metricas, meta, plataformas }: Props) {
                   <TablaFuentes m={metricas.datos} />
                 </Seccion>
               </div>
-              <Seccion titulo="Botón de WhatsApp más usado">
+              <Seccion titulo="¿Qué generó cada contacto?" nota="Nombres del catálogo src/config/rastros.ts.">
                 <ListaOrigenes m={metricas.datos} />
               </Seccion>
             </div>

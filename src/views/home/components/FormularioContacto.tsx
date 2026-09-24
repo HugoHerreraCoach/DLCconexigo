@@ -111,7 +111,7 @@ export function FormularioContacto() {
     // Se abre DENTRO del gesto del usuario (si no, el navegador lo bloquea);
     // la animación del botón corre en paralelo.
     window.open(enlaceWhatsApp(mensaje), "_blank", "noopener,noreferrer");
-    rastrearLead({ motivo: campos.motivo, inicial: campos.inicial, ubicacion: campos.ubicacion, paso: campos.paso });
+    rastrearLead("formulario-hero", { motivo: campos.motivo, inicial: campos.inicial, ubicacion: campos.ubicacion, paso: campos.paso });
     setEstado("enviando");
     setTimeout(() => setEstado("enviado"), 700);
     setTimeout(() => setEstado("reposo"), 4000);

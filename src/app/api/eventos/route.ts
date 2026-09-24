@@ -1,3 +1,4 @@
+import { esRastro } from "@/config/rastros";
 import { asegurarEsquema, sql } from "@/server/db";
 
 /* Recibe los eventos de src/shared/lib/registro.ts. Todo se valida contra
@@ -28,6 +29,8 @@ export async function POST(req: Request) {
   if (!tipo || !TIPOS.has(tipo) || !visitante) return new Response(null, { status: 400 });
 
   const fuente = FUENTES.has(String(cuerpo.fuente)) ? String(cuerpo.fuente) : "directo";
+  // Qué elemento generó el evento: solo ids del catálogo (src/config/rastros.ts).
+  const origen = tipo === "visita" ? null : esRastro(cuerpo.origen) ? cuerpo.origen : "sin-identificar";
 
   let datos: Record<string, string> | null = null;
   if (tipo === "lead" && cuerpo.datos && typeof cuerpo.datos === "object") {
@@ -39,7 +42,7 @@ export async function POST(req: Request) {
     await asegurarEsquema(sql);
     await sql`
       INSERT INTO eventos (tipo, visitante, fuente, campana, origen, movil, datos)
-      VALUES (${tipo}, ${visitante}, ${fuente}, ${texto(cuerpo.campana)}, ${texto(cuerpo.origen, 30)},
+      VALUES (${tipo}, ${visitante}, ${fuente}, ${texto(cuerpo.campana)}, ${origen},
               ${cuerpo.movil === true}, ${datos ? sql.json(datos) : null})`;
   } catch (e) {
     console.error("[eventos] no se pudo guardar", e);

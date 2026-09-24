@@ -1,3 +1,4 @@
+import { marcaRastro } from "@/config/rastros";
 import { enlaceWhatsApp, MENSAJES } from "@/shared/lib/whatsapp";
 import { IconoWhatsApp } from "@/shared/ui/IconoWhatsApp";
 
@@ -5,6 +6,7 @@ export function WhatsAppFlotante() {
   return (
     <a
       href={enlaceWhatsApp(MENSAJES.general)}
+      {...marcaRastro("whatsapp-flotante")}
       target="_blank"
       rel="noopener noreferrer"
       aria-label="Escríbenos por WhatsApp"
