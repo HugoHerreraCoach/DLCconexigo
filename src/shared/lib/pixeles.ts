@@ -19,19 +19,20 @@ declare global {
 
 const CONTENIDO = { content_name: "Finca Algarrobo", content_category: "Terrenos campestres" };
 
-/** Se envió un formulario: es el lead calificado. */
-export function rastrearLead(id: IdRastro, datos: { motivo: string; inicial: string; ubicacion: string; paso: string }) {
+/** Se envió un formulario: es el lead calificado. `codigo` es la referencia
+ *  que va en el mensaje de WhatsApp (ver nuevaReferencia en whatsapp.ts). */
+export function rastrearLead(id: IdRastro, codigo: string, datos: { motivo: string; inicial: string; ubicacion: string; paso: string }) {
   const rastro = RASTROS[id].nombre;
   window.fbq?.("track", "Lead", { ...CONTENIDO, ...datos, origen: id, rastro });
   window.ttq?.track("SubmitForm", { ...CONTENIDO, description: rastro });
-  registrar("lead", { origen: id, datos });
+  registrar("lead", { origen: id, codigo, datos });
 }
 
 /** Clic en un botón/enlace de WhatsApp. `id` dice cuál fue, para comparar
- *  en el panel y en el Administrador de anuncios. */
-export function rastrearContacto(id: IdRastro) {
+ *  en el panel y en el Administrador de anuncios; `codigo`, la referencia. */
+export function rastrearContacto(id: IdRastro, codigo: string) {
   const rastro = RASTROS[id].nombre;
   window.fbq?.("track", "Contact", { ...CONTENIDO, origen: id, rastro });
   window.ttq?.track("Contact", { ...CONTENIDO, description: rastro });
-  registrar("contacto", { origen: id });
+  registrar("contacto", { origen: id, codigo });
 }

@@ -13,12 +13,13 @@ export const RANGOS = [
   { dias: 90, etiqueta: "90 días" },
 ] as const;
 
-export type Totales = { visitas: number; visitantes: number; contactos: number; leads: number; movil: number };
+/** `recibidos`: clics y formularios cuyo mensaje de WhatsApp llegó de verdad (lo confirma el CRM). */
+export type Totales = { visitas: number; visitantes: number; contactos: number; leads: number; recibidos: number; movil: number };
 export type Dia = { dia: string; visitas: number; contactos: number; leads: number };
-export type FilaFuente = { fuente: string; visitas: number; visitantes: number; contactos: number; leads: number };
+export type FilaFuente = { fuente: string; visitas: number; visitantes: number; contactos: number; leads: number; recibidos: number };
 export type FilaCampana = FilaFuente & { campana: string };
 /** Cuántos eventos generó cada elemento del catálogo src/config/rastros.ts. */
-export type FilaOrigen = { origen: string; tipo: "contacto" | "lead"; total: number };
+export type FilaOrigen = { origen: string; tipo: "contacto" | "lead"; total: number; recibidos: number };
 export type Lead = { creado: string; fuente: string; campana: string | null; origen: string | null; datos: Record<string, string> | null };
 
 export type Metricas = {
@@ -41,7 +42,8 @@ export async function obtenerMetricas(dias: number): Promise<ResultadoMetricas> 
     count(*) FILTER (WHERE tipo = 'visita')::int                  AS visitas,
     count(DISTINCT visitante) FILTER (WHERE tipo = 'visita')::int AS visitantes,
     count(*) FILTER (WHERE tipo = 'contacto')::int                AS contactos,
-    count(*) FILTER (WHERE tipo = 'lead')::int                    AS leads`;
+    count(*) FILTER (WHERE tipo = 'lead')::int                    AS leads,
+    count(*) FILTER (WHERE recibido_en IS NOT NULL)::int          AS recibidos`;
   try {
     await asegurarEsquema(db);
 
@@ -73,7 +75,8 @@ export async function obtenerMetricas(dias: number): Promise<ResultadoMetricas> 
     const campanas = await db<FilaCampana[]>`SELECT campana, fuente, ${conteos()} FROM eventos
                         WHERE creado >= ${desde} AND campana IS NOT NULL
                         GROUP BY campana, fuente ORDER BY leads DESC, contactos DESC, visitas DESC LIMIT 20`;
-    const origenes = await db<FilaOrigen[]>`SELECT coalesce(origen, 'sin-identificar') AS origen, tipo, count(*)::int AS total
+    const origenes = await db<FilaOrigen[]>`SELECT coalesce(origen, 'sin-identificar') AS origen, tipo, count(*)::int AS total,
+                              count(*) FILTER (WHERE recibido_en IS NOT NULL)::int AS recibidos
                        FROM eventos WHERE creado >= ${desde} AND tipo IN ('contacto', 'lead')
                        GROUP BY 1, 2 ORDER BY total DESC`;
     const leads = await db<Lead[]>`SELECT to_char(creado AT TIME ZONE ${ZONA}, 'YYYY-MM-DD HH24:MI') AS creado, fuente, campana, origen, datos

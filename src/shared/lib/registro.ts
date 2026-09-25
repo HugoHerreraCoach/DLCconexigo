@@ -57,7 +57,7 @@ function atribucion(): Atribucion {
   return nueva;
 }
 
-export function registrar(tipo: TipoEvento, extra: { origen?: string; datos?: Record<string, string> } = {}) {
+export function registrar(tipo: TipoEvento, extra: { origen?: string; codigo?: string; datos?: Record<string, string> } = {}) {
   try {
     const cuerpo = JSON.stringify({
       tipo,

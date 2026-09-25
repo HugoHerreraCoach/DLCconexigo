@@ -56,6 +56,11 @@ export function asegurarEsquema(db: postgres.Sql) {
     // sin políticas nadie las lee por ahí. Nosotros entramos como dueños de la
     // tabla, y el dueño no pasa por RLS.
     .then(() => db`ALTER TABLE eventos ENABLE ROW LEVEL SECURITY`)
+    // Referencia "Ref: FA-XXXXX" del mensaje de WhatsApp y cuándo llegó de
+    // verdad (lo avisa el CRM en /api/whatsapp/recibido). Tablas creadas antes
+    // de esta versión reciben las columnas aquí.
+    .then(() => db`ALTER TABLE eventos ADD COLUMN IF NOT EXISTS codigo text, ADD COLUMN IF NOT EXISTS recibido_en timestamptz`)
+    .then(() => db`CREATE UNIQUE INDEX IF NOT EXISTS eventos_codigo_uidx ON eventos (codigo) WHERE codigo IS NOT NULL`)
     .catch((e) => {
       esquemaListo = null; // reintentar en la próxima petición
       throw e;

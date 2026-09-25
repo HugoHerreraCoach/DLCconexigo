@@ -61,7 +61,7 @@ function Tarjeta({ titulo, valor, detalle }: { titulo: string; valor: string; de
 
 function Kpis({ t, a, dias }: { t: Totales; a: Totales; dias: number }) {
   return (
-    <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+    <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-6">
       <Tarjeta titulo="Visitas" valor={num.format(t.visitas)} detalle={<Variacion actual={t.visitas} anterior={a.visitas} dias={dias} />} />
       <Tarjeta
         titulo="Visitantes únicos"
@@ -70,6 +70,11 @@ function Kpis({ t, a, dias }: { t: Totales; a: Totales; dias: number }) {
       />
       <Tarjeta titulo="Clics a WhatsApp" valor={num.format(t.contactos)} detalle={<Variacion actual={t.contactos} anterior={a.contactos} dias={dias} />} />
       <Tarjeta titulo="Formularios enviados" valor={num.format(t.leads)} detalle={<Variacion actual={t.leads} anterior={a.leads} dias={dias} />} />
+      <Tarjeta
+        titulo="Mensajes recibidos"
+        valor={num.format(t.recibidos)}
+        detalle={<p className="mt-1 text-xs text-tinta-3">{pct(t.recibidos, t.contactos + t.leads)} de clics y formularios llegaron a WhatsApp</p>}
+      />
       <Tarjeta
         titulo="Tasa de contacto"
         valor={pct(t.contactos + t.leads, t.visitas)}
@@ -114,6 +119,7 @@ function TablaFuentes({ m }: { m: Metricas }) {
             <th className="pb-2 text-right font-normal">Visitas</th>
             <th className="pb-2 text-right font-normal">WhatsApp</th>
             <th className="pb-2 text-right font-normal">Formularios</th>
+            <th className="pb-2 text-right font-normal">Recibidos</th>
             <th className="pb-2 text-right font-normal">Tasa</th>
           </tr>
         </thead>
@@ -127,6 +133,7 @@ function TablaFuentes({ m }: { m: Metricas }) {
               <td className="py-2.5 text-right">{num.format(f.visitas)}</td>
               <td className="py-2.5 text-right">{num.format(f.contactos)}</td>
               <td className="py-2.5 text-right">{num.format(f.leads)}</td>
+              <td className="py-2.5 text-right">{num.format(f.recibidos)}</td>
               <td className="py-2.5 text-right text-tinta-2">{pct(f.contactos + f.leads, f.visitas)}</td>
             </tr>
           ))}
@@ -150,6 +157,7 @@ function ListaOrigenes({ m }: { m: Metricas }) {
           <span className="mb-1 block text-xs text-tinta-3">
             {o.tipo === "lead" ? "Formulario" : "WhatsApp"}
             {esRastro(o.origen) && ` · ${RASTROS[o.origen].seccion}`}
+            {` · ${num.format(o.recibidos)} recibido${o.recibidos === 1 ? "" : "s"}`}
           </span>
           <Barra valor={o.total} maximo={maximo} />
         </li>
@@ -171,6 +179,7 @@ function TablaCampanas({ m }: { m: Metricas }) {
             <th className="pb-2 text-right font-normal">Visitas</th>
             <th className="pb-2 text-right font-normal">WhatsApp</th>
             <th className="pb-2 text-right font-normal">Formularios</th>
+            <th className="pb-2 text-right font-normal">Recibidos</th>
           </tr>
         </thead>
         <tbody className="tabular-nums">
@@ -181,6 +190,7 @@ function TablaCampanas({ m }: { m: Metricas }) {
               <td className="py-2.5 text-right">{num.format(c.visitas)}</td>
               <td className="py-2.5 text-right">{num.format(c.contactos)}</td>
               <td className="py-2.5 text-right">{num.format(c.leads)}</td>
+              <td className="py-2.5 text-right">{num.format(c.recibidos)}</td>
             </tr>
           ))}
         </tbody>

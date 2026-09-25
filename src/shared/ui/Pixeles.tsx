@@ -5,6 +5,7 @@ import Script from "next/script";
 import { esRastro } from "@/config/rastros";
 import { SITIO } from "@/config/sitio";
 import { rastrearContacto } from "@/shared/lib/pixeles";
+import { conReferencia, nuevaReferencia } from "@/shared/lib/whatsapp";
 import { registrar } from "@/shared/lib/registro";
 
 /* Carga el píxel de Meta y el de TikTok (cada uno solo si tiene ID) y registra
@@ -39,7 +40,14 @@ export function Pixeles() {
       // El id sale del atributo data-rastro (marcaRastro en src/config/rastros.ts).
       if (enlace instanceof HTMLAnchorElement) {
         const id = enlace.dataset.rastro;
-        rastrearContacto(esRastro(id) ? id : "sin-identificar");
+        // Código nuevo en cada clic: se reescribe el enlace ANTES de que el
+        // navegador lo abra (este oyente corre en fase de captura). El enlace
+        // original se guarda para no acumular referencias en clics siguientes.
+        const codigo = nuevaReferencia();
+        const base = new URL((enlace.dataset.base ??= enlace.href));
+        base.searchParams.set("text", conReferencia(base.searchParams.get("text") ?? "", codigo));
+        enlace.href = base.toString();
+        rastrearContacto(esRastro(id) ? id : "sin-identificar", codigo);
       }
     };
     document.addEventListener("click", alClic, { capture: true });
