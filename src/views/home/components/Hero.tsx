@@ -17,7 +17,7 @@ export function Hero() {
       <motion.div className="absolute inset-0" initial={{ scale: 1.08 }} animate={{ scale: 1 }} transition={{ duration: 2.4, ease: EASE }}>
         <Image
           src={FOTO_HERO}
-          alt="Campo abierto al atardecer con el sol en el horizonte"
+          alt="Render del pórtico de ingreso de Finca Algarrobo al atardecer"
           fill
           priority
           sizes="100vw"
@@ -71,7 +71,7 @@ export function Hero() {
         </motion.div>
       </motion.div>
 
-      <p className="absolute bottom-4 left-4 text-[0.7rem] text-white/50 sm:left-6">Imagen referencial</p>
+      <p className="absolute bottom-4 left-4 text-[0.7rem] text-white/50 sm:left-6">Render del proyecto</p>
     </section>
   );
 }

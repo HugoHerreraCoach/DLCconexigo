@@ -38,6 +38,7 @@ export const OFERTA = {
 
 export const NAVEGACION = [
   { href: "#proyecto", label: "El proyecto" },
+  { href: "#galeria", label: "Galería" },
   { href: "#por-que", label: "Por qué DLC" },
   { href: "#testimonios", label: "Testimonios" },
   // El formulario vive en el hero: "Contacto" lleva directo a él.

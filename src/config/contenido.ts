@@ -1,11 +1,10 @@
 /* ── Contenido editable de la landing ───────────────────────────────────────
    Todo sale de la ficha oficial y del estudio de público objetivo
-   (recursos/). Las FOTOS son referenciales (Unsplash): reemplazarlas por
-   fotos y drone del proyecto real en cuanto existan. */
+   (recursos/). Las FOTOS son renders 3D del proyecto real (recursos/Galeria/,
+   entregados por DLC): reemplazarlas por fotos y drone del avance de obra en
+   cuanto existan. */
 
-const foto = (id: string, w = 1200) => `https://images.unsplash.com/photo-${id}?auto=format&fit=crop&w=${w}&q=75`;
-
-export const FOTO_HERO = foto("1500382017468-9049fed747ef", 2400);
+export const FOTO_HERO = "/galeria/porton-ingreso.jpg";
 
 /* ── Opciones del formulario de contacto (hero) ────────────────────────────
    Qué busca la persona: para qué quiere el lote, con cuánta inicial cuenta y
@@ -35,38 +34,38 @@ export const ESPACIOS: Espacio[] = [
   {
     titulo: "Zona de hamacas",
     texto: "Para no hacer nada, a propósito.",
-    imagen: foto("1445307806294-bff7f67ff225"),
-    alt: "Persona descansando en una hamaca entre árboles",
+    imagen: "/galeria/zona-hamacas.png",
+    alt: "Render de personas descansando en hamacas bajo los árboles de Finca Algarrobo",
   },
   {
     titulo: "Cancha con grass sintético",
     texto: "El partido de los domingos, en casa.",
-    imagen: foto("1574629810360-7efbbe195018"),
-    alt: "Balón de fútbol sobre césped de cancha",
+    imagen: "/galeria/cancha-futbol.jpg",
+    alt: "Render de la cancha de fútbol con grass sintético de Finca Algarrobo al atardecer",
   },
   {
     titulo: "Mini cancha de básquet",
     texto: "Para la familia y los amigos.",
-    imagen: foto("1519861531473-9200262188bf"),
-    alt: "Pelota de básquet en una cancha al aire libre",
+    imagen: "/galeria/cancha-basquet.jpg",
+    alt: "Render de la cancha de básquet de Finca Algarrobo",
   },
   {
     titulo: "Área recreativa",
     texto: "Para niños y adultos.",
-    imagen: foto("1596997000103-e597b3ca50df"),
-    alt: "Juegos infantiles en un parque rodeado de árboles",
+    imagen: "/galeria/juegos-infantiles.jpg",
+    alt: "Render de los juegos infantiles de Finca Algarrobo",
   },
   {
     titulo: "Parque y áreas verdes",
     texto: "Aire limpio a minutos de la ciudad.",
-    imagen: foto("1502082553048-f009c37129b9"),
-    alt: "Árbol frondoso en medio de un prado verde",
+    imagen: "/galeria/fuente-parque.jpg",
+    alt: "Render del parque con fuente y áreas verdes de Finca Algarrobo",
   },
   {
     titulo: "Tu casa de campo",
-    texto: "La parrilla del domingo en tus 500 m².",
-    imagen: foto("1555939594-58d7cb561ad1"),
-    alt: "Parrillada de carnes y verduras",
+    texto: "Calles afirmadas y casas ya en pie, a tu ritmo.",
+    imagen: "/galeria/calle-residencial.jpg",
+    alt: "Render de una calle residencial con casas construidas en Finca Algarrobo",
   },
 ];
 

@@ -53,6 +53,7 @@ export const RASTROS = {
   "menu-movil-agendar-visita": { nombre: "Botón «Agenda tu visita» del menú del celular", tipo: "contacto", seccion: "Menú (celular)" },
   "proyecto-agendar-visita": { nombre: "Botón «Agenda tu visita» de El proyecto", tipo: "contacto", seccion: "El proyecto" },
   "proyecto-pedir-ficha": { nombre: "Botón «Pide la ficha»", tipo: "contacto", seccion: "El proyecto" },
+  "galeria-video-whatsapp": { nombre: "Enlace «Enviármelo por WhatsApp» del video recorrido", tipo: "contacto", seccion: "Galería y video" },
   "financiamiento-plan-cuotas": { nombre: "Enlace «Consultar mi plan de cuotas»", tipo: "contacto", seccion: "Por qué DLC · Financiamiento" },
   "legal-documentacion": { nombre: "Enlace «Consultar la documentación»", tipo: "contacto", seccion: "Por qué DLC · Papeles claros" },
   "contacto-whatsapp": { nombre: "Tarjeta «Escríbenos por WhatsApp»", tipo: "contacto", seccion: "Contacto" },

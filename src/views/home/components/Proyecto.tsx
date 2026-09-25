@@ -134,7 +134,7 @@ export function Proyecto() {
                 />
                 <div aria-hidden="true" className="absolute inset-0 bg-gradient-to-t from-neutral-950/95 via-neutral-950/30 to-transparent" />
                 <span className="absolute top-4 right-4 rounded-full bg-neutral-950/60 px-2.5 py-1 text-[0.65rem] text-white/70 backdrop-blur-md">
-                  Imagen referencial
+                  Render del proyecto
                 </span>
                 <div className="absolute inset-x-0 bottom-0 p-6">
                   <span className="mb-3 block h-0.5 w-8 bg-dlc transition-all duration-500 group-hover:w-14" aria-hidden="true" />

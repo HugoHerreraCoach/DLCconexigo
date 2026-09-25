@@ -15,10 +15,6 @@ const CABECERAS = [
 ];
 
 const nextConfig: NextConfig = {
-  images: {
-    // Fotos referenciales (Unsplash). Reemplazar por fotos/drone del proyecto real.
-    remotePatterns: [{ protocol: "https", hostname: "images.unsplash.com" }],
-  },
   async headers() {
     return [{ source: "/:path*", headers: CABECERAS }];
   },
