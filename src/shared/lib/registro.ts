@@ -57,16 +57,42 @@ function atribucion(): Atribucion {
   return nueva;
 }
 
-export function registrar(tipo: TipoEvento, extra: { origen?: string; codigo?: string; datos?: Record<string, string> } = {}) {
+type Extra = { origen?: string; datos?: Record<string, string> };
+
+function cuerpoDe(tipo: TipoEvento, extra: Extra & { reservar?: boolean }) {
+  return JSON.stringify({
+    tipo,
+    visitante: visitante(),
+    ...atribucion(),
+    movil: matchMedia("(max-width: 767px)").matches,
+    ...extra,
+  });
+}
+
+/** Registra un clic a WhatsApp o un formulario y devuelve el número de
+ *  referencia que le asignó el servidor ("L-27"). Espera como máximo 2,5 s:
+ *  si no llega, devuelve null y WhatsApp se abre sin número. */
+export async function registrarConCodigo(tipo: "contacto" | "lead", extra: Extra): Promise<string | null> {
   try {
-    const cuerpo = JSON.stringify({
-      tipo,
-      visitante: visitante(),
-      ...atribucion(),
-      movil: matchMedia("(max-width: 767px)").matches,
-      ...extra,
+    const res = await fetch("/api/eventos", {
+      method: "POST",
+      body: cuerpoDe(tipo, { ...extra, reservar: true }),
+      headers: { "Content-Type": "application/json" },
+      keepalive: true,
+      signal: AbortSignal.timeout(2500),
     });
-    // sendBeacon sobrevive a que el usuario salga a WhatsApp justo después del clic.
+    if (!res.ok || res.status === 204) return null;
+    const { codigo } = (await res.json()) as { codigo?: unknown };
+    return typeof codigo === "string" ? codigo : null;
+  } catch {
+    return null; /* la medición nunca debe impedir que se abra WhatsApp */
+  }
+}
+
+export function registrar(tipo: TipoEvento, extra: Extra = {}) {
+  try {
+    const cuerpo = cuerpoDe(tipo, extra);
+    // sendBeacon sobrevive a que el usuario salga de la página justo después.
     const blob = new Blob([cuerpo], { type: "application/json" });
     if (!navigator.sendBeacon?.("/api/eventos", blob)) {
       void fetch("/api/eventos", { method: "POST", body: cuerpo, keepalive: true, headers: { "Content-Type": "application/json" } });

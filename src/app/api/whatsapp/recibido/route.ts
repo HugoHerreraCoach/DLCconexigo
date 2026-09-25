@@ -3,7 +3,7 @@ import { esRastro, RASTROS } from "@/config/rastros";
 import { asegurarEsquema, sql } from "@/server/db";
 import { PATRON_REFERENCIA } from "@/shared/lib/whatsapp";
 
-/* Aviso del CRM ConexiGO: "llegó a WhatsApp un mensaje con Ref: FA-XXXXX".
+/* Aviso del CRM ConexiGO: llegó a WhatsApp un mensaje cuya primera línea es "L-27".
    Marca ese clic como recibido y devuelve su atribución, para que el CRM se la
    muestre al asesor en la ficha del lead.
 
@@ -11,7 +11,7 @@ import { PATRON_REFERENCIA } from "@/shared/lib/whatsapp";
    ────────
    POST /api/whatsapp/recibido
    Cabecera  X-Conexigo-Firma: sha256=<HMAC-SHA256 hex del cuerpo crudo con CONEXIGO_WEBHOOK_SECRET>
-   Cuerpo    { "codigo": "FA-7K3QX", "recibido_en": "2026-09-25T15:00:00Z" }   (recibido_en opcional)
+   Cuerpo    { "codigo": "L-27", "recibido_en": "2026-09-25T15:00:00Z" }   (recibido_en opcional)
    200       { "ok": true, "encontrado": true, "atribucion": {
                  "tipo": "contacto" | "lead", "origen": "formulario-hero",
                  "origen_nombre": "Formulario de solicitud de información de terreno",

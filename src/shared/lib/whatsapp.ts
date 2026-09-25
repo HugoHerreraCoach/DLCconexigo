@@ -6,26 +6,39 @@ export function enlaceWhatsApp(mensaje: string): string {
   return `https://wa.me/${SITIO.whatsapp}?text=${encodeURIComponent(mensaje)}`;
 }
 
-/* ── Código de referencia ────────────────────────────────────────────────────
-   Cada clic a WhatsApp añade al mensaje una línea "Ref: FA-7K3QX". El código se
-   guarda con la campaña, la fuente y el botón (tabla `eventos`). Cuando el
-   mensaje LLEGA de verdad, el CRM ConexiGO lo detecta y avisa a
-   /api/whatsapp/recibido, que marca ese clic como recibido. Así el panel
-   distingue "hizo clic" de "el mensaje llegó".
-   Formato: prefijo del proyecto + guion + 5 caracteres sin 0/O/1/I/L. */
+/* ── Número de referencia ────────────────────────────────────────────────────
+   Cada clic a WhatsApp (y cada formulario) lleva en la PRIMERA LÍNEA del
+   mensaje un número correlativo: "L-1", "L-2", "L-3"… Lo asigna el servidor
+   (/api/eventos con `reservar`, secuencia de Postgres) al registrar el clic, y
+   queda guardado con la campaña, la fuente y el botón (tabla `eventos`).
+   Cuando el mensaje LLEGA de verdad, el CRM ConexiGO lee la primera línea y
+   avisa a /api/whatsapp/recibido, que marca ese clic como recibido. Así el
+   panel distingue "hizo clic" de "el mensaje llegó". */
 
-const PREFIJO_REFERENCIA = "FA";
-const ALFABETO = "23456789ABCDEFGHJKMNPQRSTUVWXYZ";
+export const PREFIJO_REFERENCIA = "L";
+export const PATRON_REFERENCIA = /^L-[1-9]\d{0,9}$/;
 
-export const PATRON_REFERENCIA = /^[A-Z]{2,4}-[2-9A-HJKMNP-Z]{5}$/;
+/** Pone el número de referencia como primera línea del mensaje. */
+export const conReferencia = (mensaje: string, codigo: string) => `${codigo}\n${mensaje}`;
 
-export function nuevaReferencia(): string {
-  const azar = crypto.getRandomValues(new Uint8Array(5));
-  return `${PREFIJO_REFERENCIA}-${Array.from(azar, (b) => ALFABETO[b % ALFABETO.length]).join("")}`;
+/** Abre WhatsApp con el número de referencia en la primera línea.
+ *  `pedirCodigo` registra el clic y devuelve el número asignado (o null si el
+ *  servidor no respondió a tiempo: entonces se abre igual, sin número).
+ *  En escritorio la pestaña se abre YA, dentro del clic, para que el bloqueador
+ *  de ventanas no la frene; la dirección se le pone cuando llega el número. En
+ *  celular se navega directo: wa.me abre la app de WhatsApp. */
+export async function abrirWhatsApp(enlace: string, pedirCodigo: () => Promise<string | null>) {
+  const escritorio = !/Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+  const ventana = escritorio ? window.open("", "_blank") : null;
+  if (ventana) ventana.opener = null;
+
+  const codigo = await pedirCodigo();
+  const url = new URL(enlace);
+  if (codigo) url.searchParams.set("text", conReferencia(url.searchParams.get("text") ?? "", codigo));
+
+  if (ventana) ventana.location.href = url.toString();
+  else window.location.href = url.toString();
 }
-
-/** Añade la línea de referencia al final del mensaje. */
-export const conReferencia = (mensaje: string, codigo: string) => `${mensaje}\n\nRef: ${codigo}`;
 
 export const MENSAJES = {
   general: "Hola Grupo DLC, quiero información sobre Finca Algarrobo.",

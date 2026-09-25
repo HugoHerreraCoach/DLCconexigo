@@ -1,5 +1,5 @@
 import { RASTROS, type IdRastro } from "@/config/rastros";
-import { registrar } from "@/shared/lib/registro";
+import { registrarConCodigo } from "@/shared/lib/registro";
 
 /* Eventos de conversión para Meta, TikTok y el registro propio del panel. Los
    componentes llaman a estas funciones y no a fbq/ttq directamente: si un píxel
@@ -19,20 +19,21 @@ declare global {
 
 const CONTENIDO = { content_name: "Finca Algarrobo", content_category: "Terrenos campestres" };
 
-/** Se envió un formulario: es el lead calificado. `codigo` es la referencia
- *  que va en el mensaje de WhatsApp (ver nuevaReferencia en whatsapp.ts). */
-export function rastrearLead(id: IdRastro, codigo: string, datos: { motivo: string; inicial: string; ubicacion: string; paso: string }) {
+/** Se envió un formulario: es el lead calificado. Devuelve el número de
+ *  referencia ("L-27") que va en la primera línea del mensaje, o null. */
+export function rastrearLead(id: IdRastro, datos: { motivo: string; inicial: string; ubicacion: string; paso: string }) {
   const rastro = RASTROS[id].nombre;
   window.fbq?.("track", "Lead", { ...CONTENIDO, ...datos, origen: id, rastro });
   window.ttq?.track("SubmitForm", { ...CONTENIDO, description: rastro });
-  registrar("lead", { origen: id, codigo, datos });
+  return registrarConCodigo("lead", { origen: id, datos });
 }
 
 /** Clic en un botón/enlace de WhatsApp. `id` dice cuál fue, para comparar
- *  en el panel y en el Administrador de anuncios; `codigo`, la referencia. */
-export function rastrearContacto(id: IdRastro, codigo: string) {
+ *  en el panel y en el Administrador de anuncios. Devuelve el número de
+ *  referencia asignado, o null. */
+export function rastrearContacto(id: IdRastro) {
   const rastro = RASTROS[id].nombre;
   window.fbq?.("track", "Contact", { ...CONTENIDO, origen: id, rastro });
   window.ttq?.track("Contact", { ...CONTENIDO, description: rastro });
-  registrar("contacto", { origen: id, codigo });
+  return registrarConCodigo("contacto", { origen: id });
 }

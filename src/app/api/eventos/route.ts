@@ -1,9 +1,11 @@
 import { esRastro } from "@/config/rastros";
-import { PATRON_REFERENCIA } from "@/shared/lib/whatsapp";
+import { PREFIJO_REFERENCIA } from "@/shared/lib/whatsapp";
 import { asegurarEsquema, sql } from "@/server/db";
 
 /* Recibe los eventos de src/shared/lib/registro.ts. Todo se valida contra
-   listas cerradas y se recorta: el endpoint es público. */
+   listas cerradas y se recorta: el endpoint es público.
+   Con `reservar: true` (clics a WhatsApp y formularios) asigna además el
+   siguiente número de referencia ("L-27") y lo devuelve: { codigo }. */
 
 const TIPOS = new Set(["visita", "contacto", "lead"]);
 const FUENTES = new Set(["meta", "tiktok", "google", "otro", "directo"]);
@@ -32,8 +34,8 @@ export async function POST(req: Request) {
   const fuente = FUENTES.has(String(cuerpo.fuente)) ? String(cuerpo.fuente) : "directo";
   // Qué elemento generó el evento: solo ids del catálogo (src/config/rastros.ts).
   const origen = tipo === "visita" ? null : esRastro(cuerpo.origen) ? cuerpo.origen : "sin-identificar";
-  // Referencia del mensaje de WhatsApp (solo en contactos y leads).
-  const codigo = tipo !== "visita" && typeof cuerpo.codigo === "string" && PATRON_REFERENCIA.test(cuerpo.codigo) ? cuerpo.codigo : null;
+  // Número de referencia del mensaje de WhatsApp: solo en contactos y leads.
+  const reservar = tipo !== "visita" && cuerpo.reservar === true;
 
   let datos: Record<string, string> | null = null;
   if (tipo === "lead" && cuerpo.datos && typeof cuerpo.datos === "object") {
@@ -43,11 +45,13 @@ export async function POST(req: Request) {
 
   try {
     await asegurarEsquema(sql);
-    await sql`
+    const [fila] = await sql<{ codigo: string | null }[]>`
       INSERT INTO eventos (tipo, visitante, fuente, campana, origen, codigo, movil, datos)
-      VALUES (${tipo}, ${visitante}, ${fuente}, ${texto(cuerpo.campana)}, ${origen}, ${codigo},
+      VALUES (${tipo}, ${visitante}, ${fuente}, ${texto(cuerpo.campana)}, ${origen},
+              CASE WHEN ${reservar} THEN ${PREFIJO_REFERENCIA + "-"} || nextval('eventos_referencia_seq') END,
               ${cuerpo.movil === true}, ${datos ? sql.json(datos) : null})
-      ON CONFLICT (codigo) WHERE codigo IS NOT NULL DO NOTHING`;
+      RETURNING codigo`;
+    if (reservar && fila?.codigo) return Response.json({ codigo: fila.codigo });
   } catch (e) {
     console.error("[eventos] no se pudo guardar", e);
     return new Response(null, { status: 500 });

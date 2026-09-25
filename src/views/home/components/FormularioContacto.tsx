@@ -13,7 +13,7 @@ import {
 } from "@/config/contenido";
 import { EASE } from "@/shared/lib/motion";
 import { rastrearLead } from "@/shared/lib/pixeles";
-import { conReferencia, enlaceWhatsApp, nuevaReferencia } from "@/shared/lib/whatsapp";
+import { abrirWhatsApp, enlaceWhatsApp } from "@/shared/lib/whatsapp";
 
 /* El formulario NO guarda nada: arma el mensaje y abre WhatsApp con él.
    Así el lead llega directo a la conversación del asesor (el canal donde DLC
@@ -100,7 +100,6 @@ export function FormularioContacto() {
     if (errs.nombre) return document.getElementById(idNombre)?.focus();
     if (errs.celular) return document.getElementById(idCelular)?.focus();
 
-    const codigo = nuevaReferencia();
     const mensaje = [
       `Hola Grupo DLC, soy ${campos.nombre.trim()}.`,
       `Me interesa Finca Algarrobo para: ${campos.motivo.toLowerCase()}.`,
@@ -109,10 +108,11 @@ export function FormularioContacto() {
       `Mi celular: ${campos.celular.replace(/\D/g, "")}.`,
     ].join("\n");
 
-    // Se abre DENTRO del gesto del usuario (si no, el navegador lo bloquea);
-    // la animación del botón corre en paralelo.
-    window.open(enlaceWhatsApp(conReferencia(mensaje, codigo)), "_blank", "noopener,noreferrer");
-    rastrearLead("formulario-hero", codigo, { motivo: campos.motivo, inicial: campos.inicial, ubicacion: campos.ubicacion, paso: campos.paso });
+    // abrirWhatsApp abre la pestaña DENTRO del gesto del usuario (si no, el
+    // navegador la bloquea) y le pone el número de referencia en la primera
+    // línea cuando el servidor lo asigna; la animación del botón corre en paralelo.
+    const datos = { motivo: campos.motivo, inicial: campos.inicial, ubicacion: campos.ubicacion, paso: campos.paso };
+    void abrirWhatsApp(enlaceWhatsApp(mensaje), () => rastrearLead("formulario-hero", datos));
     setEstado("enviando");
     setTimeout(() => setEstado("enviado"), 700);
     setTimeout(() => setEstado("reposo"), 4000);
