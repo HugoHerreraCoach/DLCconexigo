@@ -1,6 +1,6 @@
-import { createHmac, timingSafeEqual } from "node:crypto";
 import { esRastro, RASTROS } from "@/config/rastros";
 import { asegurarEsquema, sql } from "@/server/db";
+import { firmaValida } from "@/server/firma-conexigo";
 import { PATRON_REFERENCIA } from "@/shared/lib/whatsapp";
 
 /* Aviso del CRM ConexiGO: llegó a WhatsApp un mensaje cuya primera línea es "L-27".
@@ -24,12 +24,6 @@ import { PATRON_REFERENCIA } from "@/shared/lib/whatsapp";
    primera hora de llegada. */
 
 type Fila = { tipo: "contacto" | "lead"; origen: string | null; fuente: string; campana: string | null; creado: Date };
-
-function firmaValida(crudo: string, cabecera: string | null, secreto: string) {
-  const esperada = Buffer.from(`sha256=${createHmac("sha256", secreto).update(crudo).digest("hex")}`);
-  const recibida = Buffer.from(cabecera ?? "");
-  return recibida.length === esperada.length && timingSafeEqual(recibida, esperada);
-}
 
 export async function POST(req: Request) {
   const secreto = process.env.CONEXIGO_WEBHOOK_SECRET;
