@@ -20,7 +20,8 @@ export const SITIO = {
   /** Píxeles de publicidad. Vacío = ese píxel no se carga. Se pueden
    *  sobrescribir con NEXT_PUBLIC_META_PIXEL_ID / NEXT_PUBLIC_TIKTOK_PIXEL_ID. */
   pixeles: {
-    meta: process.env.NEXT_PUBLIC_META_PIXEL_ID ?? "24878647091813468",
+    // "Pixel_DLC-CONEXIPEMA_FINCAALGARROBO" (desde 2026-09-30; antes "Finca campoora", 24878647091813468).
+    meta: process.env.NEXT_PUBLIC_META_PIXEL_ID ?? "1409214864656514",
     tiktok: process.env.NEXT_PUBLIC_TIKTOK_PIXEL_ID ?? "DAQ48QRC77U77GG14PMG",
   },
 } as const;
