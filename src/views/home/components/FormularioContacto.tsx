@@ -2,45 +2,35 @@
 
 import { useId, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowRight, Check, Loader2 } from "lucide-react";
-import {
-  CONSULTA_INICIAL,
-  INICIALES,
-  MOTIVOS,
-  SIGUIENTE_PASO,
-  UBICACIONES_LOTE,
-  type Consulta,
-} from "@/config/contenido";
+import { ArrowRight, Check, Gift, Loader2, User } from "lucide-react";
+import { INICIALES, MOTIVOS, type Consulta } from "@/config/contenido";
 import { EASE } from "@/shared/lib/motion";
 import { rastrearLead } from "@/shared/lib/pixeles";
 import { abrirWhatsApp, enlaceWhatsApp } from "@/shared/lib/whatsapp";
-
-/* El formulario NO guarda nada: arma el mensaje y abre WhatsApp con él.
-   Así el lead llega directo a la conversación del asesor (el canal donde DLC
-   ya cierra) y no hace falta backend. Si luego se conecta al CRM de Conexigo,
-   este es el único punto a cambiar. */
+import { IconoWhatsApp } from "@/shared/ui/IconoWhatsApp";
 
 type Estado = "reposo" | "enviando" | "enviado";
-type Campos = Consulta & { nombre: string; celular: string; paso: (typeof SIGUIENTE_PASO)[number] };
+type Campos = Pick<Consulta, "motivo" | "inicial"> & { nombre: string; celular: string };
 type Errores = Partial<Record<"nombre" | "celular", string>>;
 
 function validar(c: Campos): Errores {
   const e: Errores = {};
-  if (c.nombre.trim().length < 2) e.nombre = "Escribe tu nombre.";
-  if (c.celular.replace(/\D/g, "").length < 9) e.celular = "Escribe un celular válido de 9 dígitos.";
+  if (c.nombre.trim().length < 2) e.nombre = "Escribe tu nombre y apellido.";
+  if (c.celular.replace(/\D/g, "").length < 9) e.celular = "Escribe un número de celular de 9 dígitos.";
   return e;
 }
-
-const claseCampo = (error?: string) =>
-  `h-12 w-full rounded-xl border bg-white/[0.04] px-4 text-base text-white placeholder:text-neutral-500 transition-colors focus:bg-white/[0.06] focus:outline-none ${
-    error ? "border-red-400/70 focus:border-red-400" : "border-white/10 hover:border-white/20 focus:border-dlc"
-  }`;
 
 function MensajeError({ id, texto }: { id: string; texto?: string }) {
   return (
     <AnimatePresence>
       {texto && (
-        <motion.p id={id} initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="mt-2 text-sm text-red-300">
+        <motion.p
+          id={id}
+          initial={{ opacity: 0, y: -4 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0 }}
+          className="mt-1.5 text-xs font-medium text-red-600"
+        >
           {texto}
         </motion.p>
       )}
@@ -48,36 +38,13 @@ function MensajeError({ id, texto }: { id: string; texto?: string }) {
   );
 }
 
-function Selector<T extends string>({
-  etiqueta,
-  valor,
-  opciones,
-  onCambio,
-}: {
-  etiqueta: string;
-  valor: T;
-  opciones: readonly T[];
-  onCambio: (v: T) => void;
-}) {
-  const id = useId();
-  return (
-    <div>
-      <label htmlFor={id} className="mb-2 block text-sm text-neutral-300">
-        {etiqueta}
-      </label>
-      <select id={id} value={valor} onChange={(e) => onCambio(e.target.value as T)} className={`${claseCampo()} cursor-pointer`}>
-        {opciones.map((o) => (
-          <option key={o} className="bg-neutral-900">
-            {o}
-          </option>
-        ))}
-      </select>
-    </div>
-  );
-}
-
 export function FormularioContacto() {
-  const [campos, setCampos] = useState<Campos>({ ...CONSULTA_INICIAL, nombre: "", celular: "", paso: SIGUIENTE_PASO[0] });
+  const [campos, setCampos] = useState<Campos>({
+    motivo: MOTIVOS[0],
+    inicial: INICIALES[0],
+    nombre: "",
+    celular: "",
+  });
   const [errores, setErrores] = useState<Errores>({});
   const [intentado, setIntentado] = useState(false);
   const [estado, setEstado] = useState<Estado>("reposo");
@@ -87,7 +54,6 @@ export function FormularioContacto() {
   const actualizar = <K extends keyof Campos>(k: K, v: Campos[K]) => {
     const nuevos = { ...campos, [k]: v };
     setCampos(nuevos);
-    // Tras el primer intento, se revalida en vivo para que el error desaparezca al corregir.
     if (intentado) setErrores(validar(nuevos));
   };
 
@@ -102,16 +68,19 @@ export function FormularioContacto() {
 
     const mensaje = [
       `Hola Grupo DLC, soy ${campos.nombre.trim()}.`,
+      `¡Quiero reclamar mi Bono: Cerco vivo en cada lote! 🎁`,
       `Me interesa Finca Algarrobo para: ${campos.motivo.toLowerCase()}.`,
-      `Inicial: ${campos.inicial} · Ubicación del lote: ${campos.ubicacion.toLowerCase()}.`,
-      `Quisiera: ${campos.paso.toLowerCase()}.`,
-      `Mi celular: ${campos.celular.replace(/\D/g, "")}.`,
+      `Inicial estimada: ${campos.inicial}.`,
+      `Mi celular: +51 ${campos.celular.replace(/\D/g, "")}.`,
     ].join("\n");
 
-    // abrirWhatsApp abre la pestaña DENTRO del gesto del usuario (si no, el
-    // navegador la bloquea) y le pone el número de referencia en la primera
-    // línea cuando el servidor lo asigna; la animación del botón corre en paralelo.
-    const datos = { motivo: campos.motivo, inicial: campos.inicial, ubicacion: campos.ubicacion, paso: campos.paso };
+    const datos = {
+      motivo: campos.motivo,
+      inicial: campos.inicial,
+      ubicacion: "Bono cerco vivo",
+      paso: "Reclamar regalo en WhatsApp",
+    };
+
     void abrirWhatsApp(enlaceWhatsApp(mensaje), () => rastrearLead("formulario-hero", datos));
     setEstado("enviando");
     setTimeout(() => setEstado("enviado"), 700);
@@ -124,95 +93,202 @@ export function FormularioContacto() {
       onSubmit={enviar}
       noValidate
       aria-labelledby="formulario-titulo"
-      className="scroll-mt-6 rounded-[2rem] border border-white/15 bg-neutral-950/65 p-6 shadow-[0_40px_100px_-40px_rgba(0,0,0,0.9)] backdrop-blur-xl sm:p-8"
+      className="scroll-mt-6 rounded-[2rem] border border-neutral-200/90 bg-white p-5 shadow-[0_30px_70px_-20px_rgba(0,0,0,0.55)] sm:p-7 text-neutral-900 transition-all"
     >
-      <p id="formulario-titulo" className="font-display text-2xl font-medium">
-        Recibe la ficha y tu <span className="text-dlc">plan de cuotas</span>
+      {/* Título de acción claro */}
+      <p id="formulario-titulo" className="text-center text-sm font-medium text-neutral-600 sm:text-base leading-snug">
+        Toca el botón de abajo para{" "}
+        <strong className="font-extrabold text-neutral-950 block sm:inline">
+          reclamarlo por WhatsApp.
+        </strong>
       </p>
-      <p className="mt-1 text-sm text-tinta-2">Un asesor te escribe por WhatsApp. Sin compromiso.</p>
 
-      <div className="mt-6 grid gap-4 sm:grid-cols-2">
-        <div>
-          <label htmlFor={idNombre} className="mb-2 block text-sm text-neutral-300">
-            Nombre
-          </label>
-          <input
-            id={idNombre}
-            autoComplete="name"
-            placeholder="Tu nombre"
-            value={campos.nombre}
-            onChange={(e) => actualizar("nombre", e.target.value)}
-            aria-invalid={Boolean(errores.nombre)}
-            aria-describedby={errores.nombre ? `${idNombre}-e` : undefined}
-            className={claseCampo(errores.nombre)}
-          />
-          <MensajeError id={`${idNombre}-e`} texto={errores.nombre} />
-        </div>
-        <div>
-          <label htmlFor={idCelular} className="mb-2 block text-sm text-neutral-300">
-            Celular
-          </label>
-          <input
-            id={idCelular}
-            type="tel"
-            inputMode="tel"
-            autoComplete="tel"
-            placeholder="9XX XXX XXX"
-            value={campos.celular}
-            onChange={(e) => actualizar("celular", e.target.value)}
-            aria-invalid={Boolean(errores.celular)}
-            aria-describedby={errores.celular ? `${idCelular}-e` : undefined}
-            className={claseCampo(errores.celular)}
-          />
-          <MensajeError id={`${idCelular}-e`} texto={errores.celular} />
-        </div>
-        <Selector etiqueta="Lo quiero para" valor={campos.motivo} opciones={MOTIVOS} onCambio={(v) => actualizar("motivo", v)} />
-        <Selector etiqueta="Inicial" valor={campos.inicial} opciones={INICIALES} onCambio={(v) => actualizar("inicial", v)} />
-        <Selector
-          etiqueta="Ubicación del lote"
-          valor={campos.ubicacion}
-          opciones={UBICACIONES_LOTE}
-          onCambio={(v) => actualizar("ubicacion", v)}
-        />
-        <Selector etiqueta="Me gustaría" valor={campos.paso} opciones={SIGUIENTE_PASO} onCambio={(v) => actualizar("paso", v)} />
+      {/* Tarjeta destacada de Bono Exclusivo */}
+      <div className="mt-3.5 flex items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-[#fdb90c]/80 bg-[#fffbeb] px-3.5 py-2.5 text-center sm:py-3 shadow-xs">
+        <Gift className="size-4.5 text-[#b45309] shrink-0" />
+        <span className="text-xs font-extrabold text-[#92400e] sm:text-sm">
+          ¡Bono Exclusivo: Cerco vivo en cada lote!
+        </span>
       </div>
 
-      {/* Micro-interacción: el botón cambia de forma y contenido según el estado */}
+      <div className="mt-5 space-y-4">
+        {/* Campo Nombre y apellidos con ícono */}
+        <div>
+          <div
+            className={`flex items-center h-12 w-full rounded-2xl border bg-neutral-50 px-3.5 transition-all focus-within:bg-white focus-within:ring-2 ${
+              errores.nombre
+                ? "border-red-500 focus-within:ring-red-200 focus-within:border-red-500"
+                : "border-neutral-200 focus-within:border-[#25D366] focus-within:ring-[#25D366]/20"
+            }`}
+          >
+            <User className="size-4.5 text-neutral-400 shrink-0 mr-2.5" />
+            <input
+              id={idNombre}
+              autoComplete="name"
+              placeholder="Nombre y apellidos*"
+              value={campos.nombre}
+              onChange={(e) => actualizar("nombre", e.target.value)}
+              aria-invalid={Boolean(errores.nombre)}
+              aria-describedby={errores.nombre ? `${idNombre}-e` : undefined}
+              className="w-full bg-transparent text-sm text-neutral-900 placeholder:text-neutral-400 focus:outline-none"
+            />
+          </div>
+          <MensajeError id={`${idNombre}-e`} texto={errores.nombre} />
+        </div>
+
+        {/* Campo Celular con bandera y código de Perú +51 */}
+        <div>
+          <div
+            className={`flex items-center h-12 w-full rounded-2xl border bg-neutral-50 px-3.5 transition-all focus-within:bg-white focus-within:ring-2 ${
+              errores.celular
+                ? "border-red-500 focus-within:ring-red-200 focus-within:border-red-500"
+                : "border-neutral-200 focus-within:border-[#25D366] focus-within:ring-[#25D366]/20"
+            }`}
+          >
+            <div className="flex items-center gap-1.5 pr-2.5 mr-2.5 border-r border-neutral-200 shrink-0 select-none">
+              <span className="text-base" role="img" aria-label="Bandera de Perú">
+                🇵🇪
+              </span>
+              <span className="text-xs font-bold text-neutral-800 sm:text-sm">+51</span>
+            </div>
+            <input
+              id={idCelular}
+              type="tel"
+              inputMode="tel"
+              autoComplete="tel"
+              placeholder="Tu número de celular*"
+              value={campos.celular}
+              onChange={(e) => actualizar("celular", e.target.value)}
+              aria-invalid={Boolean(errores.celular)}
+              aria-describedby={errores.celular ? `${idCelular}-e` : undefined}
+              className="w-full bg-transparent text-sm text-neutral-900 placeholder:text-neutral-400 focus:outline-none"
+            />
+          </div>
+          <MensajeError id={`${idCelular}-e`} texto={errores.celular} />
+        </div>
+
+        {/* Selector interactivo: Lo quiero para (Chips clicables) */}
+        <div>
+          <label className="mb-2 block text-xs font-bold text-neutral-700 uppercase tracking-wide">
+            Lo quiero para:
+          </label>
+          <div className="grid grid-cols-2 gap-2.5">
+            {MOTIVOS.map((m) => {
+              const seleccionado = campos.motivo === m;
+              return (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => actualizar("motivo", m)}
+                  className={`flex h-11 items-center justify-center rounded-xl border px-3 text-center text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
+                    seleccionado
+                      ? "border-neutral-900 bg-neutral-950 text-white shadow-sm"
+                      : "border-neutral-200 bg-neutral-50/80 text-neutral-600 hover:border-neutral-300 hover:bg-neutral-100"
+                  }`}
+                >
+                  {m}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Selector interactivo: Inicial (Chips clicables en cuadrícula) */}
+        <div>
+          <label className="mb-2 block text-xs font-bold text-neutral-700 uppercase tracking-wide">
+            Inicial estimada:
+          </label>
+          <div className="grid grid-cols-2 gap-2">
+            {INICIALES.map((ini) => {
+              const seleccionado = campos.inicial === ini;
+              return (
+                <button
+                  key={ini}
+                  type="button"
+                  onClick={() => actualizar("inicial", ini)}
+                  className={`flex h-11 items-center justify-center rounded-xl border px-2.5 text-center text-xs font-semibold transition-all cursor-pointer ${
+                    seleccionado
+                      ? "border-neutral-900 bg-neutral-950 text-white shadow-sm"
+                      : "border-neutral-200 bg-neutral-50/80 text-neutral-600 hover:border-neutral-300 hover:bg-neutral-100"
+                  }`}
+                >
+                  {ini}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      {/* Botón CTA Verde WhatsApp interactivo con micro-animaciones */}
       <motion.button
         type="submit"
         layout
         disabled={estado !== "reposo"}
         aria-live="polite"
-        whileHover={estado === "reposo" ? { y: -2 } : undefined}
-        whileTap={estado === "reposo" ? { scale: 0.97 } : undefined}
+        whileHover={estado === "reposo" ? { y: -2, scale: 1.01 } : undefined}
+        whileTap={estado === "reposo" ? { scale: 0.98 } : undefined}
         transition={{ layout: { duration: 0.35, ease: EASE } }}
-        style={{ borderRadius: 12 }}
-        className={`group mt-6 inline-flex h-14 w-full cursor-pointer items-center justify-center gap-3 overflow-hidden px-7 font-semibold whitespace-nowrap transition-colors disabled:cursor-default ${
-          estado === "enviado" ? "bg-emerald-500 text-neutral-950" : "bg-dlc text-neutral-950 hover:bg-dlc-claro"
+        className={`group mt-6 inline-flex h-14 w-full cursor-pointer items-center justify-center gap-2.5 rounded-2xl px-6 font-bold text-white shadow-[0_12px_28px_-6px_rgba(37,211,102,0.5)] transition-all disabled:cursor-default ${
+          estado === "enviado"
+            ? "bg-[#1da851]"
+            : "bg-[#25D366] hover:bg-[#20bd5a] hover:shadow-[0_16px_32px_-6px_rgba(37,211,102,0.6)]"
         }`}
       >
         <AnimatePresence mode="wait" initial={false}>
           {estado === "reposo" && (
-            <motion.span key="reposo" className="flex items-center gap-3" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.2 }}>
-              Enviar por WhatsApp
-              <ArrowRight className="size-5 transition-transform duration-300 group-hover:translate-x-1" aria-hidden="true" />
+            <motion.span
+              key="reposo"
+              className="flex items-center justify-center gap-2.5 text-sm sm:text-base tracking-wide uppercase"
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.2 }}
+            >
+              <IconoWhatsApp className="size-5 shrink-0" />
+              <span>Reclamar regalo en WhatsApp</span>
+              <ArrowRight className="size-4.5 transition-transform duration-300 group-hover:translate-x-1" aria-hidden="true" />
             </motion.span>
           )}
           {estado === "enviando" && (
-            <motion.span key="enviando" className="flex items-center gap-3" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.2 }}>
+            <motion.span
+              key="enviando"
+              className="flex items-center gap-2.5 text-sm sm:text-base"
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.2 }}
+            >
               <Loader2 className="size-5 animate-spin motion-reduce:animate-none" aria-hidden="true" />
-              Preparando…
+              Conectando con WhatsApp…
             </motion.span>
           )}
           {estado === "enviado" && (
-            <motion.span key="enviado" className="flex items-center gap-3" initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }} transition={{ type: "spring", stiffness: 420, damping: 22 }}>
+            <motion.span
+              key="enviado"
+              className="flex items-center gap-2.5 text-sm sm:text-base"
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ type: "spring", stiffness: 420, damping: 22 }}
+            >
               <Check className="size-5" strokeWidth={3} aria-hidden="true" />
-              ¡Listo! Te esperamos
+              ¡Listo! Abriendo WhatsApp…
             </motion.span>
           )}
         </AnimatePresence>
       </motion.button>
-      <p className="mt-3 text-center text-xs text-tinta-3">Se abrirá WhatsApp con tu mensaje listo. No guardamos tus datos.</p>
+
+      {/* Insignia de seguridad y confianza inferior */}
+      <div className="mt-3 flex items-center justify-center">
+        <span className="inline-flex items-center gap-1.5 rounded-full bg-neutral-100 px-3.5 py-1.5 text-[11px] font-medium text-neutral-600">
+          <span role="img" aria-label="Escudo" className="text-xs">
+            🛡️
+          </span>
+          Canal oficial de comunicación
+        </span>
+      </div>
     </form>
   );
 }
+

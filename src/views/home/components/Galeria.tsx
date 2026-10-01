@@ -10,14 +10,19 @@ import { IconoWhatsApp } from "@/shared/ui/IconoWhatsApp";
 
 const FOTOS = [
   {
-    src: "/galeria/letrero-bienvenida.jpg",
-    alt: "Render del letrero de bienvenida a Finca Algarrobo",
-    etiqueta: "Bienvenida",
+    src: "/galeria/letrero-finca-algarrobo.jpg",
+    alt: "Render del monumento de ingreso Finca Algarrobo",
+    etiqueta: "Monumento de bienvenida",
   },
   {
-    src: "/galeria/plaza-aerea.jpg",
-    alt: "Vista aérea del render de la plaza central con fuente y casas de Finca Algarrobo",
-    etiqueta: "Vista aérea",
+    src: "/galeria/parque-central-aereo.jpg",
+    alt: "Vista aérea del parque central con pileta, juegos infantiles y zona de hamacas",
+    etiqueta: "Parque central y áreas verdes",
+  },
+  {
+    src: "/galeria/cancha-sintetica-aerea.jpg",
+    alt: "Vista aérea de la cancha de fútbol con grass sintético y básquet",
+    etiqueta: "Cancha deportiva con grass sintético",
   },
   {
     src: "/galeria/gimnasio-aire-libre.png",
@@ -25,14 +30,9 @@ const FOTOS = [
     etiqueta: "Gimnasio al aire libre",
   },
   {
-    src: "/galeria/cancha-basquet-aerea.png",
-    alt: "Vista aérea del render de las canchas de básquet de Finca Algarrobo",
-    etiqueta: "Cancha de básquet",
-  },
-  {
-    src: "/galeria/cancha-futbol-aerea.png",
-    alt: "Vista aérea del render de la cancha de fútbol de Finca Algarrobo",
-    etiqueta: "Cancha de fútbol",
+    src: "/galeria/calle-residencial.jpg",
+    alt: "Render de las calles afirmadas y viviendas de Finca Algarrobo",
+    etiqueta: "Calles afirmadas y lotes",
   },
 ] as const;
 
@@ -47,7 +47,7 @@ export function Galeria() {
           etiqueta="Galería y video"
           titulo={
             <>
-              Así se ve <span className="font-semibold text-dlc">Finca Algarrobo</span>
+              Así se verá <span className="font-semibold text-dlc">Finca Algarrobo</span>
             </>
           }
           bajada="Renders del proyecto y un recorrido en video para que conozcas cada espacio antes de tu visita."

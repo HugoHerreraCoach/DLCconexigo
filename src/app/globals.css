@@ -63,3 +63,36 @@ body {
     linear-gradient(90deg, rgba(253, 185, 12, 0.05) 1px, transparent 1px);
   background-size: 56px 56px;
 }
+
+/* Brillo sutil de alta gama para titulares destacados */
+@keyframes brillo-dorado {
+  0%, 100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+.texto-dorado-animado {
+  background: linear-gradient(
+    90deg,
+    #fdb90c 0%,
+    #ffe792 25%,
+    #ffffff 50%,
+    #ffe792 75%,
+    #fdb90c 100%
+  );
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+  animation: brillo-dorado 7s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .texto-dorado-animado {
+    animation: none;
+  }
+}

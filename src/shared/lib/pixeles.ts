@@ -23,8 +23,17 @@ const CONTENIDO = { content_name: "Finca Algarrobo", content_category: "Terrenos
  *  referencia ("L-27") que va en la primera línea del mensaje, o null. */
 export function rastrearLead(id: IdRastro, datos: { motivo: string; inicial: string; ubicacion: string; paso: string }) {
   const rastro = RASTROS[id].nombre;
+  // Meta Pixel: evento estándar Lead, evento personalizado Lead/lead, y Contact
   window.fbq?.("track", "Lead", { ...CONTENIDO, ...datos, origen: id, rastro });
+  window.fbq?.("trackCustom", "Lead", { ...CONTENIDO, ...datos, origen: id, rastro });
+  window.fbq?.("trackCustom", "lead", { ...CONTENIDO, ...datos, origen: id, rastro });
+  window.fbq?.("track", "Contact", { ...CONTENIDO, ...datos, origen: id, rastro });
+
+  // TikTok Pixel: SubmitForm, Lead y Contact
   window.ttq?.track("SubmitForm", { ...CONTENIDO, description: rastro });
+  window.ttq?.track("Lead", { ...CONTENIDO, description: rastro });
+  window.ttq?.track("Contact", { ...CONTENIDO, description: rastro });
+
   return registrarConCodigo("lead", { origen: id, datos });
 }
 
@@ -33,7 +42,17 @@ export function rastrearLead(id: IdRastro, datos: { motivo: string; inicial: str
  *  referencia asignado, o null. */
 export function rastrearContacto(id: IdRastro) {
   const rastro = RASTROS[id].nombre;
+  // Meta Pixel: medimos tanto Lead (estándar y personalizado) como Contact
+  // para que cualquier campaña optimizada para Lead o Contact reciba la conversión.
+  window.fbq?.("track", "Lead", { ...CONTENIDO, origen: id, rastro });
+  window.fbq?.("trackCustom", "Lead", { ...CONTENIDO, origen: id, rastro });
+  window.fbq?.("trackCustom", "lead", { ...CONTENIDO, origen: id, rastro });
   window.fbq?.("track", "Contact", { ...CONTENIDO, origen: id, rastro });
+
+  // TikTok Pixel: registramos Contact, Lead y SubmitForm para garantizar la atribución.
   window.ttq?.track("Contact", { ...CONTENIDO, description: rastro });
+  window.ttq?.track("Lead", { ...CONTENIDO, description: rastro });
+  window.ttq?.track("SubmitForm", { ...CONTENIDO, description: rastro });
+
   return registrarConCodigo("contacto", { origen: id });
 }

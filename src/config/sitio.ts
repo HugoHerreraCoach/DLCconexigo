@@ -30,7 +30,7 @@ export const OFERTA = {
   precioDesde: "S/ 58,000",
   separaDesde: "S/ 500",
   inicialDesde: "S/ 5,000",
-  meses: 24,
+  meses: 36,
   interes: "0%",
   metraje: "500 m²",
   minutosRealPlaza: 15,

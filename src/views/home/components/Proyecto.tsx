@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { motion } from "framer-motion";
-import { ArrowUpRight, Check, MapPin } from "lucide-react";
+import { ArrowUpRight, Check, MapPin, TrendingUp } from "lucide-react";
 import { ESPACIOS } from "@/config/contenido";
 import { marcaRastro } from "@/config/rastros";
 import { OFERTA, SITIO } from "@/config/sitio";
@@ -34,13 +34,13 @@ export function Proyecto() {
       <div className="mx-auto max-w-6xl px-4 sm:px-6">
         <Encabezado
           id="titulo-proyecto"
-          etiqueta="Proyecto destacado"
+          etiqueta="Condominio Privado Exclusivo"
           titulo={
             <>
-              Finca Algarrobo, <span className="font-semibold text-dlc">tu lugar en el campo</span>
+              Finca Algarrobo: <span className="font-semibold text-dlc">tu patrimonio exclusivo</span> con alta plusvalía
             </>
           }
-          bajada="Un condominio campestre cercado, a 15 minutos del Real Plaza de Chiclayo, pensado para disfrutarlo desde el primer fin de semana."
+          bajada="Un condominio campestre privado diseñado para vivir con tranquilidad y multiplicar tu inversión. Ubicado estratégicamente en Capote, a solo 3 minutos de la zona urbana y a 15 minutos del Real Plaza de Chiclayo. Comprar en preventa hoy te asegura el precio más bajo por m² y te permite capitalizar la acelerada plusvalía del eje de mayor expansión de Lambayeque."
         />
 
         {/* Tarjeta destacada del proyecto */}
@@ -57,10 +57,15 @@ export function Proyecto() {
 
           <div className="flex flex-col p-6 sm:p-10">
             <div className="flex flex-wrap items-center gap-3">
-              <span className="rounded-full bg-dlc px-3 py-1 text-xs font-semibold text-neutral-950">Preventa</span>
+              <span className="rounded-full bg-dlc px-3 py-1 text-xs font-semibold text-neutral-950">
+                Preventa Exclusiva
+              </span>
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-400">
+                <TrendingUp className="size-3.5" /> Alta Plusvalía
+              </span>
               <span className="flex items-center gap-1.5 text-sm text-tinta-2">
                 <MapPin className="size-4 text-dlc" aria-hidden="true" />
-                Capote, carretera a Ferreñafe
+                Capote · A 15 min de Real Plaza Chiclayo
               </span>
             </div>
 
@@ -74,8 +79,8 @@ export function Proyecto() {
             </dl>
 
             <p className="mt-6 rounded-xl border border-dlc/25 bg-dlc/[0.06] px-4 py-3 text-sm text-neutral-200">
-              <strong className="text-dlc">{OFERTA.interes} de interés</strong> y financiamiento directo hasta en{" "}
-              {OFERTA.meses} meses. El precio varía según metraje y ubicación del lote.
+              <strong className="text-dlc">0% de interés y financiamiento directo</strong> hasta en{" "}
+              {OFERTA.meses} meses. Comprar en etapa de preventa te garantiza la mayor rentabilidad mientras la zona se consolida.
             </p>
 
             <ul className="mt-8 grid gap-3 border-t border-borde pt-6 sm:grid-cols-2">
