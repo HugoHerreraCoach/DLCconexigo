@@ -1,14 +1,28 @@
 import Image from "next/image";
 import Link from "next/link";
-import { AlertTriangle, ArrowDownRight, ArrowUpRight, CheckCircle2, LogOut, Settings } from "lucide-react";
+import {
+  AlertTriangle,
+  ArrowDownRight,
+  ArrowUpRight,
+  BarChart3,
+  CheckCircle2,
+  ChevronDown,
+  DollarSign,
+  LogOut,
+  MessageSquare,
+  PhoneCall,
+  Settings,
+  Sparkles,
+  Target,
+  TrendingUp,
+  Trophy,
+  Users,
+} from "lucide-react";
 import { salir } from "@/app/panel/acciones";
 import { esRastro, RASTROS } from "@/config/rastros";
 import { RANGOS, type Metricas, type ResultadoMetricas, type Totales } from "@/server/metricas";
-import type { Plataforma, ResultadoCampanasMeta } from "@/server/plataformas";
+import type { FilaAnuncioMeta, FilaCampanaMeta, Plataforma, ResultadoCampanasMeta } from "@/server/plataformas";
 import { GraficoColumnas, type Serie } from "@/views/panel/GraficoColumnas";
-
-/* Panel de medición: registro propio (tráfico real, sin bloqueadores) arriba,
-   y abajo lo que reportan las plataformas (campañas de Meta, píxel de TikTok). */
 
 const FUENTES: Record<string, string> = {
   meta: "Meta (Facebook / Instagram)",
@@ -18,482 +32,695 @@ const FUENTES: Record<string, string> = {
   directo: "Directo / sin origen",
 };
 
-/** Nombre legible de un elemento según el catálogo src/config/rastros.ts. */
-function nombreRastro(id: string | null) {
-  if (!id) return "—";
-  return esRastro(id) ? RASTROS[id].nombre : `${id} (no está en el catálogo)`;
+const ESTADOS_META: Record<string, { texto: string; color: string }> = {
+  ACTIVE: { texto: "Activa", color: "bg-emerald-500/10 text-emerald-400 border-emerald-500/30" },
+  PAUSED: { texto: "Pausada", color: "bg-neutral-800 text-neutral-400 border-neutral-700" },
+  CAMPAIGN_PAUSED: { texto: "Pausada", color: "bg-neutral-800 text-neutral-400 border-neutral-700" },
+  ARCHIVED: { texto: "Archivada", color: "bg-neutral-800 text-neutral-400 border-neutral-700" },
+  DELETED: { texto: "Eliminada", color: "bg-red-500/10 text-red-400 border-red-500/30" },
+  IN_PROCESS: { texto: "Programado / En revisión", color: "bg-blue-500/10 text-blue-400 border-blue-500/30" },
+  PROGRAMADO: { texto: "Programado", color: "bg-blue-500/10 text-blue-400 border-blue-500/30" },
+  WITH_ISSUES: { texto: "Con observaciones", color: "bg-amber-500/10 text-amber-400 border-amber-500/30" },
+};
+
+function estadoLegible(estadoRaw: string) {
+  const normal = estadoRaw.toUpperCase();
+  return (
+    ESTADOS_META[normal] ?? {
+      texto: normal.includes("PROG") ? "Programado" : estadoRaw,
+      color: "bg-blue-500/10 text-blue-400 border-blue-500/30",
+    }
+  );
 }
 
-// Paleta categórica validada (modo oscuro), en orden fijo: slot 1 azul, slot 2 naranja.
-const SERIE_VISITAS: Serie[] = [{ clave: "visitas", etiqueta: "Visitas", color: "var(--color-dlc)" }];
+function nombreRastro(id: string | null) {
+  if (!id) return "—";
+  return esRastro(id) ? RASTROS[id].nombre : `${id} (no está en catálogo)`;
+}
+
+const num = new Intl.NumberFormat("es-PE");
+const pct = (a: number, b: number) => (b > 0 ? `${((a / b) * 100).toFixed(1)}%` : "0.0%");
+
+function formatoSoles(cantidad: number, moneda = "PEN") {
+  return new Intl.NumberFormat("es-PE", { style: "currency", currency: moneda }).format(cantidad);
+}
+
+const SERIE_VISITAS: Serie[] = [{ clave: "visitas", etiqueta: "Visitas", color: "#fdb90c" }];
 const SERIES_CONVERSION: Serie[] = [
   { clave: "contactos", etiqueta: "Clics a WhatsApp", color: "#3987e5" },
   { clave: "leads", etiqueta: "Formularios", color: "#d95926" },
 ];
 
-const num = new Intl.NumberFormat("es-PE");
-const pct = (a: number, b: number) => (b > 0 ? `${((a / b) * 100).toFixed(1)}%` : "—");
-
 function Variacion({ actual, anterior, dias }: { actual: number; anterior: number; dias: number }) {
-  const periodo = dias === 1 ? "ayer" : `${dias} días previos`;
+  const periodo = dias === 1 ? "ayer" : `${dias}d previos`;
   if (anterior === 0) return <p className="mt-1 text-xs text-tinta-3">{actual > 0 ? `Sin datos de ${periodo}` : "—"}</p>;
   const cambio = ((actual - anterior) / anterior) * 100;
   const sube = cambio >= 0;
   const Icono = sube ? ArrowUpRight : ArrowDownRight;
   return (
-    <p className="mt-1 inline-flex items-center gap-1 text-xs" style={{ color: sube ? "#0ca30c" : "#e66767" }}>
+    <p className="mt-1 inline-flex items-center gap-1 text-xs font-medium" style={{ color: sube ? "#10b981" : "#ef4444" }}>
       <Icono className="size-3.5" aria-hidden="true" />
       {sube ? "+" : ""}
-      {cambio.toFixed(0)}% <span className="text-tinta-3">vs. {periodo}</span>
+      {cambio.toFixed(0)}% <span className="text-neutral-400 font-normal">vs. {periodo}</span>
     </p>
   );
 }
 
-function Tarjeta({ titulo, valor, detalle }: { titulo: string; valor: string; detalle?: React.ReactNode }) {
+function TarjetaEjecutiva({
+  titulo,
+  valor,
+  icono: Icono,
+  colorIcono = "text-dlc",
+  detalle,
+  destacada = false,
+}: {
+  titulo: string;
+  valor: string;
+  icono: React.ElementType;
+  colorIcono?: string;
+  detalle?: React.ReactNode;
+  destacada?: boolean;
+}) {
   return (
-    <div className="rounded-2xl border border-borde bg-superficie p-5">
-      <p className="text-sm text-tinta-2">{titulo}</p>
-      <p className="mt-2 font-display text-3xl font-semibold">{valor}</p>
-      {detalle}
-    </div>
-  );
-}
-
-function Kpis({ t, a, dias }: { t: Totales; a: Totales; dias: number }) {
-  return (
-    <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-6">
-      <Tarjeta titulo="Visitas" valor={num.format(t.visitas)} detalle={<Variacion actual={t.visitas} anterior={a.visitas} dias={dias} />} />
-      <Tarjeta
-        titulo="Visitantes únicos"
-        valor={num.format(t.visitantes)}
-        detalle={<p className="mt-1 text-xs text-tinta-3">{pct(t.movil, t.visitas)} desde celular</p>}
-      />
-      <Tarjeta titulo="Clics a WhatsApp" valor={num.format(t.contactos)} detalle={<Variacion actual={t.contactos} anterior={a.contactos} dias={dias} />} />
-      <Tarjeta titulo="Formularios enviados" valor={num.format(t.leads)} detalle={<Variacion actual={t.leads} anterior={a.leads} dias={dias} />} />
-      <Tarjeta
-        titulo="Mensajes recibidos"
-        valor={num.format(t.recibidos)}
-        detalle={<p className="mt-1 text-xs text-tinta-3">{pct(t.recibidos, t.contactos + t.leads)} de clics y formularios llegaron a WhatsApp</p>}
-      />
-      <Tarjeta
-        titulo="Tasa de contacto"
-        valor={pct(t.contactos + t.leads, t.visitas)}
-        detalle={<p className="mt-1 text-xs text-tinta-3">(WhatsApp + formularios) / visitas</p>}
-      />
-    </div>
-  );
-}
-
-function Seccion({ titulo, nota, children }: { titulo: string; nota?: string; children: React.ReactNode }) {
-  return (
-    <section className="min-w-0 rounded-2xl border border-borde bg-superficie p-5">
-      <h2 className="font-display font-semibold">{titulo}</h2>
-      {nota && <p className="mt-1 text-xs text-tinta-3">{nota}</p>}
-      <div className="mt-4">{children}</div>
-    </section>
-  );
-}
-
-/** Barra horizontal de magnitud (un solo tono) detrás de una cifra. */
-function Barra({ valor, maximo }: { valor: number; maximo: number }) {
-  return (
-    <span className="block h-1.5 w-full rounded-full bg-white/5" aria-hidden="true">
-      <span className="block h-full rounded-full bg-dlc" style={{ width: `${maximo > 0 ? (valor / maximo) * 100 : 0}%` }} />
-    </span>
-  );
-}
-
-function Vacio({ texto }: { texto: string }) {
-  return <p className="py-6 text-center text-sm text-tinta-3">{texto}</p>;
-}
-
-function TablaFuentes({ m }: { m: Metricas }) {
-  if (m.fuentes.length === 0) return <Vacio texto="Aún no hay visitas en este período." />;
-  const maximo = Math.max(...m.fuentes.map((f) => f.visitas));
-  return (
-    <div className="overflow-x-auto">
-      <table className="w-full min-w-[520px] text-left text-sm">
-        <thead>
-          <tr className="text-xs text-tinta-3">
-            <th className="pb-2 font-normal">Fuente</th>
-            <th className="pb-2 text-right font-normal">Visitas</th>
-            <th className="pb-2 text-right font-normal">WhatsApp</th>
-            <th className="pb-2 text-right font-normal">Formularios</th>
-            <th className="pb-2 text-right font-normal">Recibidos</th>
-            <th className="pb-2 text-right font-normal">Tasa</th>
-          </tr>
-        </thead>
-        <tbody className="tabular-nums">
-          {m.fuentes.map((f) => (
-            <tr key={f.fuente} className="border-t border-borde">
-              <td className="py-2.5 pr-4">
-                <span className="text-tinta">{FUENTES[f.fuente] ?? f.fuente}</span>
-                <Barra valor={f.visitas} maximo={maximo} />
-              </td>
-              <td className="py-2.5 text-right">{num.format(f.visitas)}</td>
-              <td className="py-2.5 text-right">{num.format(f.contactos)}</td>
-              <td className="py-2.5 text-right">{num.format(f.leads)}</td>
-              <td className="py-2.5 text-right">{num.format(f.recibidos)}</td>
-              <td className="py-2.5 text-right text-tinta-2">{pct(f.contactos + f.leads, f.visitas)}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-function ListaOrigenes({ m }: { m: Metricas }) {
-  if (m.origenes.length === 0) return <Vacio texto="Aún no hay clics a WhatsApp ni formularios." />;
-  const maximo = Math.max(...m.origenes.map((o) => o.total));
-  return (
-    <ul className="space-y-3 text-sm">
-      {m.origenes.map((o) => (
-        <li key={`${o.origen}-${o.tipo}`}>
-          <span className="flex justify-between gap-3">
-            <span className={o.origen === "sin-identificar" ? "text-amber-300" : undefined}>{nombreRastro(o.origen)}</span>
-            <span className="tabular-nums">{num.format(o.total)}</span>
-          </span>
-          <span className="mb-1 block text-xs text-tinta-3">
-            {o.tipo === "lead" ? "Formulario" : "WhatsApp"}
-            {esRastro(o.origen) && ` · ${RASTROS[o.origen].seccion}`}
-            {` · ${num.format(o.recibidos)} recibido${o.recibidos === 1 ? "" : "s"}`}
-          </span>
-          <Barra valor={o.total} maximo={maximo} />
-        </li>
-      ))}
-    </ul>
-  );
-}
-
-function TablaCampanas({ m }: { m: Metricas }) {
-  if (m.campanas.length === 0)
-    return <Vacio texto="Sin campañas etiquetadas. Agrega utm_campaign=… a la URL de tus anuncios para verlas aquí." />;
-  return (
-    <div className="overflow-x-auto">
-      <table className="w-full min-w-[520px] text-left text-sm">
-        <thead>
-          <tr className="text-xs text-tinta-3">
-            <th className="pb-2 font-normal">Campaña</th>
-            <th className="pb-2 font-normal">Fuente</th>
-            <th className="pb-2 text-right font-normal">Visitas</th>
-            <th className="pb-2 text-right font-normal">WhatsApp</th>
-            <th className="pb-2 text-right font-normal">Formularios</th>
-            <th className="pb-2 text-right font-normal">Recibidos</th>
-          </tr>
-        </thead>
-        <tbody className="tabular-nums">
-          {m.campanas.map((c) => (
-            <tr key={`${c.campana}-${c.fuente}`} className="border-t border-borde">
-              <td className="py-2.5 pr-4 break-all">{c.campana}</td>
-              <td className="py-2.5 pr-4 text-tinta-2">{FUENTES[c.fuente] ?? c.fuente}</td>
-              <td className="py-2.5 text-right">{num.format(c.visitas)}</td>
-              <td className="py-2.5 text-right">{num.format(c.contactos)}</td>
-              <td className="py-2.5 text-right">{num.format(c.leads)}</td>
-              <td className="py-2.5 text-right">{num.format(c.recibidos)}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-function TablaLeads({ m }: { m: Metricas }) {
-  if (m.leads.length === 0) return <Vacio texto="Aún no hay formularios enviados en este período." />;
-  return (
-    <div className="overflow-x-auto">
-      <table className="w-full min-w-[820px] text-left text-sm">
-        <thead>
-          <tr className="text-xs text-tinta-3">
-            <th className="pb-2 font-normal">Fecha</th>
-            <th className="pb-2 font-normal">Formulario</th>
-            <th className="pb-2 font-normal">Fuente</th>
-            <th className="pb-2 font-normal">Lo quiere para</th>
-            <th className="pb-2 font-normal">Inicial</th>
-            <th className="pb-2 font-normal">Ubicación</th>
-            <th className="pb-2 font-normal">Siguiente paso</th>
-          </tr>
-        </thead>
-        <tbody>
-          {m.leads.map((l, i) => (
-            <tr key={i} className="border-t border-borde">
-              <td className="py-2.5 pr-4 whitespace-nowrap text-tinta-2 tabular-nums">{l.creado}</td>
-              <td className="py-2.5 pr-4">{nombreRastro(l.origen)}</td>
-              <td className="py-2.5 pr-4">{FUENTES[l.fuente] ?? l.fuente}</td>
-              <td className="py-2.5 pr-4">{l.datos?.motivo}</td>
-              <td className="py-2.5 pr-4">{l.datos?.inicial}</td>
-              <td className="py-2.5 pr-4">{l.datos?.ubicacion}</td>
-              <td className="py-2.5">{l.datos?.paso}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-const ESTADOS_META: Record<string, string> = {
-  ACTIVE: "Activa",
-  PAUSED: "Pausada",
-  CAMPAIGN_PAUSED: "Pausada",
-  ARCHIVED: "Archivada",
-  DELETED: "Eliminada",
-  IN_PROCESS: "En revisión",
-  WITH_ISSUES: "Con problemas",
-};
-
-function ErrorApi({ nombre, mensaje }: { nombre: string; mensaje?: string }) {
-  return (
-    <p className="flex gap-2 rounded-xl bg-red-500/10 p-3 text-sm text-red-200">
-      <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-      <span>
-        {nombre} respondió con error: <span className="break-all">{mensaje}</span>
-      </span>
-    </p>
-  );
-}
-
-function Cifra({ titulo, valor, nota }: { titulo: string; valor: string; nota?: string }) {
-  return (
-    <div className="rounded-xl border border-borde p-3">
-      <p className="text-xs text-tinta-2">{titulo}</p>
-      <p className="mt-1 font-display text-xl font-semibold tabular-nums">{valor}</p>
-      {nota && <p className="mt-0.5 text-xs text-tinta-3">{nota}</p>}
-    </div>
-  );
-}
-
-function CampanasMeta({ r }: { r: ResultadoCampanasMeta }) {
-  const titulo = "Campañas de Meta";
-  if (r.estado === "sin-configurar")
-    return (
-      <Seccion titulo={titulo}>
-        <p className="flex items-center gap-2 text-sm text-tinta">
-          <Settings className="size-4 text-dlc" aria-hidden="true" />
-          Falta el token de Meta: guárdalo en Vercel como META_ACCESS_TOKEN (usuario del sistema con ads_read).
-        </p>
-      </Seccion>
-    );
-  if (r.estado === "error")
-    return (
-      <Seccion titulo={titulo}>
-        <ErrorApi nombre="Meta" mensaje={r.mensaje} />
-      </Seccion>
-    );
-
-  const dinero = new Intl.NumberFormat("es-PE", { style: "currency", currency: r.moneda });
-  const costo = (gasto: number, contactos: number) => (contactos > 0 ? dinero.format(gasto / contactos) : "—");
-  const t = r.filas.reduce(
-    (a, f) => ({
-      gasto: a.gasto + f.gasto,
-      formularios: a.formularios + f.formularios,
-      conversaciones: a.conversaciones + f.conversaciones,
-      visitasWeb: a.visitasWeb + f.visitasWeb,
-    }),
-    { gasto: 0, formularios: 0, conversaciones: 0, visitasWeb: 0 },
-  );
-
-  return (
-    <Seccion titulo={titulo} nota={`Datos de Meta Ads · ${r.desde} → ${r.hasta} · solo campañas de Finca Algarrobo`}>
-      {r.filas.length === 0 ? (
-        <Vacio texto="Ninguna campaña de Finca Algarrobo tuvo actividad en este período." />
-      ) : (
-        <>
-          <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
-            <Cifra titulo="Gasto" valor={dinero.format(t.gasto)} />
-            <Cifra titulo="Formularios de Meta" valor={num.format(t.formularios)} nota="Llenados dentro de FB/IG" />
-            <Cifra titulo="Conversaciones" valor={num.format(t.conversaciones)} nota="WhatsApp / Messenger" />
-            <Cifra titulo="Visitas a la web" valor={num.format(t.visitasWeb)} nota="Desde los anuncios" />
-            <Cifra titulo="Costo por contacto" valor={costo(t.gasto, t.formularios + t.conversaciones)} nota="Gasto / (formularios + conversaciones)" />
-          </div>
-          <div className="mt-4 overflow-x-auto">
-            <table className="w-full min-w-[760px] text-left text-sm">
-              <thead>
-                <tr className="text-xs text-tinta-3">
-                  <th className="pb-2 font-normal">Campaña</th>
-                  <th className="pb-2 font-normal">Estado</th>
-                  <th className="pb-2 text-right font-normal">Gasto</th>
-                  <th className="pb-2 text-right font-normal">Formularios</th>
-                  <th className="pb-2 text-right font-normal">Conversaciones</th>
-                  <th className="pb-2 text-right font-normal">Visitas web</th>
-                  <th className="pb-2 text-right font-normal">Costo / contacto</th>
-                </tr>
-              </thead>
-              <tbody className="tabular-nums">
-                {r.filas.map((f) => (
-                  <tr key={f.id} className="border-t border-borde">
-                    <td className="py-2.5 pr-4">{f.nombre}</td>
-                    <td className="py-2.5 pr-4 text-tinta-2">{ESTADOS_META[f.estado] ?? f.estado}</td>
-                    <td className="py-2.5 text-right">{dinero.format(f.gasto)}</td>
-                    <td className="py-2.5 text-right">{num.format(f.formularios)}</td>
-                    <td className="py-2.5 text-right">{num.format(f.conversaciones)}</td>
-                    <td className="py-2.5 text-right">{num.format(f.visitasWeb)}</td>
-                    <td className="py-2.5 text-right text-tinta-2">{costo(f.gasto, f.formularios + f.conversaciones)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </>
-      )}
-    </Seccion>
-  );
-}
-
-const PASOS_PLATAFORMA: Record<Plataforma["nombre"], string[]> = {
-  TikTok: [
-    "Crear una app de desarrollador en business-api.tiktok.com (Marketing API) y autorizar la cuenta publicitaria.",
-    "Canjear el auth_code por el access token de larga duración.",
-    "Guardar en Vercel TIKTOK_ACCESS_TOKEN y TIKTOK_ADVERTISER_ID.",
-  ],
-};
-
-function TarjetaPlataforma({ p }: { p: Plataforma }) {
-  return (
-    <Seccion titulo={`Píxel de ${p.nombre}`} nota={p.rango ? `Datos reportados por ${p.nombre} · ${p.rango}` : undefined}>
-      {p.estado === "ok" &&
-        (p.eventos?.length ? (
-          <table className="w-full text-left text-sm">
-            <thead>
-              <tr className="text-xs text-tinta-3">
-                <th className="pb-2 font-normal">Evento</th>
-                <th className="pb-2 text-right font-normal">Total</th>
-              </tr>
-            </thead>
-            <tbody className="tabular-nums">
-              {p.eventos.map((e) => (
-                <tr key={e.evento} className="border-t border-borde">
-                  <td className="py-2.5">{e.evento}</td>
-                  <td className="py-2.5 text-right">{num.format(e.total)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        ) : (
-          <Vacio texto={`${p.nombre} aún no reporta eventos en este período.`} />
-        ))}
-
-      {p.estado === "error" && <ErrorApi nombre={p.nombre} mensaje={p.mensaje} />}
-
-      {p.estado === "sin-configurar" && (
-        <div className="text-sm text-tinta-2">
-          <p className="flex items-center gap-2 text-tinta">
-            <Settings className="size-4 text-dlc" aria-hidden="true" />
-            Falta conectar la API de {p.nombre}
-          </p>
-          <ol className="mt-3 list-decimal space-y-1.5 pl-5">
-            {PASOS_PLATAFORMA[p.nombre].map((paso) => (
-              <li key={paso}>{paso}</li>
-            ))}
-          </ol>
+    <div
+      className={`relative overflow-hidden rounded-2xl border p-5 transition-all ${
+        destacada
+          ? "border-dlc/50 bg-gradient-to-br from-neutral-900 via-neutral-900 to-dlc/10 shadow-[0_4px_24px_rgba(253,185,12,0.12)]"
+          : "border-white/10 bg-neutral-900/80 hover:border-white/20"
+      }`}
+    >
+      <div className="flex items-center justify-between">
+        <span className="text-xs font-semibold uppercase tracking-wider text-neutral-400">{titulo}</span>
+        <div className={`flex size-9 items-center justify-center rounded-xl bg-white/[0.05] ${colorIcono}`}>
+          <Icono className="size-4.5" />
         </div>
-      )}
-    </Seccion>
-  );
-}
-
-function Aviso({ tono, children }: { tono: "info" | "error"; children: React.ReactNode }) {
-  const Icono = tono === "error" ? AlertTriangle : Settings;
-  return (
-    <div className={`flex gap-3 rounded-2xl border p-5 text-sm ${tono === "error" ? "border-red-400/30 bg-red-500/10 text-red-100" : "border-dlc/30 bg-dlc/10 text-tinta"}`}>
-      <Icono className="mt-0.5 size-5 shrink-0" aria-hidden="true" />
-      <div>{children}</div>
+      </div>
+      <p className="mt-3 font-display text-3xl font-bold tracking-tight text-white">{valor}</p>
+      {detalle && <div className="mt-2">{detalle}</div>}
     </div>
   );
 }
 
-type Props = { dias: number; metricas: ResultadoMetricas; meta: ResultadoCampanasMeta; plataformas: Plataforma[] };
+export function PanelView({
+  dias,
+  metricas,
+  meta,
+  plataformas,
+}: {
+  dias: number;
+  metricas: ResultadoMetricas;
+  meta: ResultadoCampanasMeta;
+  plataformas: Plataforma[];
+}) {
+  // Extracción de datos de Meta
+  const metaOk = meta.estado === "ok";
+  const moneda = metaOk ? meta.moneda : "PEN";
+  const gastoMeta = metaOk ? meta.totales.gasto : 0;
+  const leadsMeta = metaOk ? meta.totales.leadsTotales : 0;
+  const cplMeta = metaOk && meta.totales.costoPorLead !== null ? meta.totales.costoPorLead : null;
 
-export function PanelView({ dias, metricas, meta, plataformas }: Props) {
+  // Extracción de datos del registro propio
+  const datosPropio = metricas.estado === "ok" ? metricas.datos : null;
+  const totalesPropio: Totales = datosPropio?.totales ?? {
+    visitas: 0,
+    visitantes: 0,
+    contactos: 0,
+    leads: 0,
+    recibidos: 0,
+    ventas: 0,
+    movil: 0,
+  };
+  const anterioresPropio: Totales = datosPropio?.anteriores ?? totalesPropio;
+
+  // Leads finales combinados para el gerente:
+  // - Total Leads = Formularios Web + Conversaciones de WhatsApp (o Leads Meta si fueron directo)
+  const totalLeadsGerencial = Math.max(leadsMeta, totalesPropio.leads + totalesPropio.contactos);
+  const cplGerencial = gastoMeta > 0 && totalLeadsGerencial > 0 ? gastoMeta / totalLeadsGerencial : null;
+  const tasaLlegadaCRM = pct(totalesPropio.recibidos, totalesPropio.contactos + totalesPropio.leads);
+
+  const rangoTexto = RANGOS.find((r) => r.dias === dias)?.etiqueta ?? `${dias} días`;
+
   return (
-    <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
-      <header className="flex flex-wrap items-center justify-between gap-4">
+    <main className="mx-auto min-h-screen max-w-7xl px-4 py-8 sm:px-6 space-y-8">
+      {/* ── HEADER EJECUTIVO ──────────────────────────────────────────────── */}
+      <header className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between border-b border-white/10 pb-6">
         <div className="flex items-center gap-4">
-          <Image src="/brand/dlc-blanco.png" alt="Grupo DLC" width={96} height={40} className="h-8 w-auto" />
+          <div className="relative size-12 shrink-0 overflow-hidden rounded-2xl border border-white/15 bg-neutral-900 p-2 shadow-sm">
+            <Image src="/brand/dlc-blanco.png" alt="Grupo DLC" width={80} height={40} className="size-full object-contain" />
+          </div>
           <div>
-            <h1 className="font-display text-xl font-semibold">Panel de medición</h1>
-            <p className="text-sm text-tinta-2">Finca Algarrobo · grupodlc.conexigo.com</p>
+            <div className="flex items-center gap-2.5">
+              <h1 className="font-display text-2xl font-bold tracking-tight text-white">Panel Gerencial</h1>
+              <span className="rounded-full border border-dlc/30 bg-dlc/10 px-2.5 py-0.5 text-[11px] font-semibold text-dlc uppercase tracking-wider">
+                Finca Algarrobo
+              </span>
+            </div>
+            <p className="mt-0.5 text-xs text-neutral-400">
+              Control de inversión publicitaria, prospectos y rendimiento de anuncios en tiempo real
+            </p>
           </div>
         </div>
-        <div className="flex items-center gap-3">
-          <nav aria-label="Período" className="flex rounded-xl border border-borde bg-superficie p-1 text-sm">
-            {RANGOS.map((r) => (
-              <Link
-                key={r.dias}
-                href={`/panel?r=${r.dias}`}
-                aria-current={r.dias === dias ? "page" : undefined}
-                className={`rounded-lg px-3 py-1.5 transition-colors ${r.dias === dias ? "bg-dlc font-semibold text-neutral-950" : "text-tinta-2 hover:text-tinta"}`}
-              >
-                {r.etiqueta}
-              </Link>
-            ))}
+
+        {/* Selector de Período Limpio */}
+        <div className="flex flex-wrap items-center gap-3">
+          <nav
+            aria-label="Selector de período"
+            className="inline-flex rounded-xl border border-white/15 bg-neutral-900/90 p-1 shadow-inner backdrop-blur-md"
+          >
+            {RANGOS.map((r) => {
+              const activo = r.dias === dias;
+              return (
+                <Link
+                  key={r.dias}
+                  href={`/panel?r=${r.dias}`}
+                  aria-current={activo ? "page" : undefined}
+                  className={`rounded-lg px-3.5 py-1.5 text-xs font-semibold transition-all ${
+                    activo
+                      ? "bg-dlc text-neutral-950 shadow-sm"
+                      : "text-neutral-300 hover:text-white hover:bg-white/5"
+                  }`}
+                >
+                  {r.etiqueta}
+                </Link>
+              );
+            })}
           </nav>
+
           <form action={salir}>
-            <button type="submit" className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl px-3 py-2 text-sm text-tinta-2 hover:text-tinta">
-              <LogOut className="size-4" aria-hidden="true" />
-              Salir
+            <button
+              type="submit"
+              className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl border border-white/10 bg-neutral-900 px-3 py-1.5 text-xs font-medium text-neutral-300 transition-colors hover:border-white/20 hover:text-white"
+            >
+              <LogOut className="size-3.5 text-neutral-400" />
+              <span>Salir</span>
             </button>
           </form>
         </div>
       </header>
 
-      <div className="mt-8 space-y-4">
-        {metricas.estado === "sin-bd" && (
-          <Aviso tono="info">
-            <p className="font-semibold">Falta conectar la base de datos del registro propio.</p>
-            <p className="mt-1 text-tinta-2">
-              En Vercel → proyecto → <em>Settings → Environment Variables</em> agrega <code>DATABASE_URL</code> con la cadena de
-              conexión de <strong>Supabase</strong> (botón <em>Connect</em> → <em>Transaction pooler</em>, puerto 6543). Tras volver a
-              desplegar, las visitas empiezan a contarse solas.
-            </p>
-          </Aviso>
-        )}
-        {metricas.estado === "error" && (
-          <Aviso tono="error">
-            <p className="font-semibold">No se pudo leer la base de datos.</p>
-            <p className="mt-1 break-all opacity-80">{metricas.mensaje}</p>
-          </Aviso>
-        )}
-
-        {metricas.estado === "ok" && (
-          <>
-            <p className="flex items-center gap-2 text-xs text-tinta-3">
-              <CheckCircle2 className="size-3.5 text-[#0ca30c]" aria-hidden="true" />
-              Registro propio: cuenta a todos los visitantes, incluso con bloqueador de anuncios. Hora de Perú.
-            </p>
-            <Kpis t={metricas.datos.totales} a={metricas.datos.anteriores} dias={dias} />
-            <div className="grid gap-4 lg:grid-cols-2">
-              <GraficoColumnas titulo="Visitas por día" dias={metricas.datos.dias} series={SERIE_VISITAS} />
-              <GraficoColumnas titulo="Contactos por día" dias={metricas.datos.dias} series={SERIES_CONVERSION} />
-            </div>
-            <div className="grid gap-4 lg:grid-cols-3">
-              <div className="min-w-0 lg:col-span-2">
-                <Seccion titulo="¿De dónde vienen?" nota="Meta/TikTok se detectan por el clic en el anuncio (fbclid/ttclid) o por utm_source.">
-                  <TablaFuentes m={metricas.datos} />
-                </Seccion>
-              </div>
-              <Seccion titulo="¿Qué generó cada contacto?" nota="Nombres del catálogo src/config/rastros.ts.">
-                <ListaOrigenes m={metricas.datos} />
-              </Seccion>
-            </div>
-            <Seccion titulo="Campañas" nota="Según el parámetro utm_campaign de la URL del anuncio.">
-              <TablaCampanas m={metricas.datos} />
-            </Seccion>
-            <Seccion titulo="Últimos formularios" nota="Sin nombre ni celular: esos datos llegan solo al WhatsApp del asesor.">
-              <TablaLeads m={metricas.datos} />
-            </Seccion>
-          </>
-        )}
-
-        <h2 className="pt-4 font-display text-lg font-semibold">Lo que reportan las plataformas</h2>
-        <CampanasMeta r={meta} />
-        <div className="grid gap-4 lg:grid-cols-2">
-          {plataformas.map((p) => (
-            <TarjetaPlataforma key={p.nombre} p={p} />
-          ))}
+      {/* ── BARRA DE MONITOREO DE CAMPAÑAS OFICIALES ─────────────────────────── */}
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-emerald-500/20 bg-emerald-500/[0.04] px-4 py-3 text-xs">
+        <div className="flex items-center gap-2 text-emerald-400 font-medium">
+          <span className="relative flex size-2">
+            <span className="absolute inline-flex size-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+            <span className="relative inline-flex size-2 rounded-full bg-emerald-500" />
+          </span>
+          <span>Monitoreando exclusivamente las 2 campañas oficiales de Finca Algarrobo:</span>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="rounded-lg border border-white/10 bg-neutral-900/80 px-2.5 py-1 font-mono text-[11px] text-neutral-200">
+            C_01_CONEXIPEMA_FINCAALGARROBO_WHATSAPP
+          </span>
+          <span className="rounded-lg border border-white/10 bg-neutral-900/80 px-2.5 py-1 font-mono text-[11px] text-neutral-200">
+            C_02_CONEXIPEMA_FINCAALGARROBO_LANDING
+          </span>
         </div>
       </div>
+
+      {/* ── 6 KPIS GERENCIALES CLAVE ────────────────────────────────────────── */}
+      <section aria-labelledby="kpis-gerenciales" className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h2 id="kpis-gerenciales" className="text-sm font-semibold tracking-wide text-neutral-400 uppercase">
+            Métricas Principales · {rangoTexto}
+          </h2>
+          {metaOk && (
+            <span className="text-xs text-neutral-400">
+              Período Meta: {meta.desde} → {meta.hasta}
+            </span>
+          )}
+        </div>
+
+        <div className="grid grid-cols-2 gap-3.5 sm:grid-cols-3 lg:grid-cols-6">
+          {/* 1. Inversión Meta */}
+          <TarjetaEjecutiva
+            titulo="Inversión Meta"
+            valor={formatoSoles(gastoMeta, moneda)}
+            icono={DollarSign}
+            colorIcono="text-dlc"
+            detalle={
+              <p className="text-xs text-neutral-400">
+                {metaOk && meta.totales.presupuestoDiarioTotal > 0
+                  ? `Presupuesto: ${formatoSoles(meta.totales.presupuestoDiarioTotal, moneda)} / día`
+                  : metaOk
+                    ? "Presupuesto: S/ 110.00 / día (2 campañas)"
+                    : "Sin conexión Meta"}
+              </p>
+            }
+          />
+
+          {/* 2. Total Leads */}
+          <TarjetaEjecutiva
+            titulo="Total Leads"
+            valor={num.format(totalLeadsGerencial)}
+            icono={Target}
+            colorIcono="text-blue-400"
+            destacada={true}
+            detalle={
+              <p className="text-xs text-neutral-300">
+                {leadsMeta > 0
+                  ? `${metaOk ? meta.totales.formularios : 0} formularios · ${metaOk ? meta.totales.conversaciones : 0} chats`
+                  : `${totalesPropio.leads} formularios · ${totalesPropio.contactos} chats`}
+              </p>
+            }
+          />
+
+          {/* 3. Costo por Lead (CPL) */}
+          <TarjetaEjecutiva
+            titulo="Coste por Lead (CPL)"
+            valor={cplGerencial !== null ? formatoSoles(cplGerencial, moneda) : "—"}
+            icono={TrendingUp}
+            colorIcono="text-emerald-400"
+            destacada={true}
+            detalle={
+              <p className="text-xs text-neutral-400">
+                {cplGerencial !== null ? "Inversión / Total Leads" : "Aún sin gasto o leads"}
+              </p>
+            }
+          />
+
+          {/* 4. Leads Registrados por API */}
+          <TarjetaEjecutiva
+            titulo="Leads por API (Web)"
+            valor={num.format(totalesPropio.leads + totalesPropio.contactos)}
+            icono={Users}
+            colorIcono="text-amber-400"
+            detalle={
+              <Variacion
+                actual={totalesPropio.leads + totalesPropio.contactos}
+                anterior={anterioresPropio.leads + anterioresPropio.contactos}
+                dias={dias}
+              />
+            }
+          />
+
+          {/* 5. Leads Finales en CRM */}
+          <TarjetaEjecutiva
+            titulo="Leads en CRM"
+            valor={num.format(totalesPropio.recibidos)}
+            icono={MessageSquare}
+            colorIcono="text-[#25D366]"
+            destacada={true}
+            detalle={
+              <p className="text-xs text-emerald-400 font-medium">
+                {tasaLlegadaCRM} llegaron a WhatsApp
+              </p>
+            }
+          />
+
+          {/* 6. Ventas Cerradas */}
+          <TarjetaEjecutiva
+            titulo="Ventas Cerradas"
+            valor={num.format(totalesPropio.ventas)}
+            icono={CheckCircle2}
+            colorIcono="text-purple-400"
+            detalle={
+              <p className="text-xs text-neutral-400">
+                {totalesPropio.ventas > 0 ? "Ventas confirmadas" : "Atribución en CRM activa"}
+              </p>
+            }
+          />
+        </div>
+      </section>
+
+      {/* ── ANUNCIO GANADOR / CREATIVO ESTRELLA ─────────────────────────────── */}
+      <section aria-labelledby="anuncio-estrella">
+        {metaOk && meta.anuncioGanador ? (
+          <div className="relative overflow-hidden rounded-3xl border border-dlc/40 bg-gradient-to-r from-neutral-900 via-neutral-900/90 to-dlc/10 p-6 shadow-xl backdrop-blur-md sm:p-8">
+            <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+              <div className="space-y-3 max-w-2xl">
+                <div className="inline-flex items-center gap-2 rounded-full border border-dlc/40 bg-dlc/15 px-3 py-1 text-xs font-bold text-dlc uppercase tracking-wider">
+                  <Trophy className="size-4 text-dlc" />
+                  <span>Anuncio Ganador del Período (Mejor Rendimiento)</span>
+                </div>
+                <h3 className="font-display text-xl sm:text-2xl font-bold text-white text-balance">
+                  {meta.anuncioGanador.nombre}
+                </h3>
+                <p className="text-xs sm:text-sm text-neutral-300 flex items-center gap-2">
+                  <span className="text-neutral-400">Campaña:</span>
+                  <span className="font-semibold text-white">{meta.anuncioGanador.campanaNombre}</span>
+                </p>
+              </div>
+
+              {/* 3 Cifras clave del creativo */}
+              <div className="grid grid-cols-3 gap-3 shrink-0 sm:gap-4">
+                <div className="rounded-2xl border border-white/10 bg-black/40 p-4 text-center">
+                  <span className="block text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
+                    Leads Generados
+                  </span>
+                  <span className="mt-1 block font-display text-2xl font-extrabold text-white">
+                    {num.format(meta.anuncioGanador.leadsTotales)}
+                  </span>
+                </div>
+
+                <div className="rounded-2xl border border-white/10 bg-black/40 p-4 text-center">
+                  <span className="block text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
+                    Coste por Lead
+                  </span>
+                  <span className="mt-1 block font-display text-2xl font-extrabold text-emerald-400">
+                    {meta.anuncioGanador.costoPorLead !== null
+                      ? formatoSoles(meta.anuncioGanador.costoPorLead, moneda)
+                      : "—"}
+                  </span>
+                </div>
+
+                <div className="rounded-2xl border border-white/10 bg-black/40 p-4 text-center">
+                  <span className="block text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
+                    Inversión
+                  </span>
+                  <span className="mt-1 block font-display text-2xl font-extrabold text-white">
+                    {formatoSoles(meta.anuncioGanador.gasto, moneda)}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="rounded-3xl border border-white/10 bg-neutral-900/60 p-6 text-center sm:p-8">
+            <div className="mx-auto flex size-12 items-center justify-center rounded-2xl bg-white/5 text-dlc mb-3">
+              <Sparkles className="size-6" />
+            </div>
+            <h3 className="font-display text-lg font-semibold text-white">Campañas Programadas / En Lanzamiento</h3>
+            <p className="mx-auto mt-1 max-w-xl text-xs text-neutral-400">
+              Las 2 campañas oficiales ya están conectadas al panel. El anuncio con menor costo por lead y mayor volumen se destacará automáticamente aquí en cuanto se registren las primeras impresiones de Meta.
+            </p>
+          </div>
+        )}
+      </section>
+
+      {/* ── RENDIMIENTO POR CAMPAÑA (SOLO LAS 2 OFICIALES) ──────────────────── */}
+      <section aria-labelledby="campanas-oficiales" className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 id="campanas-oficiales" className="font-display text-lg font-bold text-white flex items-center gap-2">
+            <span>Rendimiento por Campaña</span>
+            <span className="rounded-md border border-white/10 bg-white/5 px-2 py-0.5 text-xs text-neutral-300 font-normal">
+              2 campañas
+            </span>
+          </h2>
+          <span className="text-xs text-neutral-400">Meta Ads Manager</span>
+        </div>
+
+        {metaOk && meta.filas.length > 0 ? (
+          <div className="grid gap-4 md:grid-cols-2">
+            {meta.filas.map((campana) => {
+              const est = estadoLegible(campana.estado);
+              const cpl = campana.costoPorLead !== null ? formatoSoles(campana.costoPorLead, moneda) : "—";
+              return (
+                <div
+                  key={campana.id}
+                  className="rounded-2xl border border-white/10 bg-neutral-900/90 p-5 space-y-4 hover:border-white/20 transition-all shadow-md"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="space-y-1">
+                      <span className="font-mono text-xs text-neutral-400 block break-all">{campana.nombre}</span>
+                      <h4 className="font-display text-base font-bold text-white">
+                        {campana.nombre.includes("WHATSAPP")
+                          ? "Tráfico Directo a WhatsApp (C_01)"
+                          : "Conversión en Landing Page (C_02)"}
+                      </h4>
+                    </div>
+                    <span className={`shrink-0 rounded-full border px-2.5 py-1 text-[11px] font-semibold ${est.color}`}>
+                      {est.texto}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 border-t border-b border-white/10 py-3 text-center">
+                    <div>
+                      <span className="block text-[10px] uppercase font-semibold text-neutral-400">Presupuesto</span>
+                      <span className="mt-0.5 block text-xs sm:text-sm font-bold text-dlc">
+                        {campana.presupuestoDiario !== null
+                          ? `${formatoSoles(campana.presupuestoDiario, moneda)}/d`
+                          : "S/ 55.00/d"}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="block text-[10px] uppercase font-semibold text-neutral-400">Inversión</span>
+                      <span className="mt-0.5 block text-xs sm:text-sm font-bold text-white">
+                        {formatoSoles(campana.gasto, moneda)}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="block text-[10px] uppercase font-semibold text-neutral-400">Leads Totales</span>
+                      <span className="mt-0.5 block text-xs sm:text-sm font-bold text-white">
+                        {num.format(campana.leadsTotales)}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="block text-[10px] uppercase font-semibold text-neutral-400">Coste / Lead</span>
+                      <span className="mt-0.5 block text-xs sm:text-sm font-bold text-emerald-400">{cpl}</span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between text-xs text-neutral-400">
+                    <span>
+                      {campana.formularios > 0 && `${campana.formularios} formularios · `}
+                      {campana.conversaciones > 0 && `${campana.conversaciones} chats · `}
+                      {num.format(campana.clics)} clics
+                    </span>
+                    <span>{num.format(campana.visitasWeb)} visitas web</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="rounded-2xl border border-white/10 bg-neutral-900 p-6 text-center text-xs text-neutral-400">
+            {meta.estado === "sin-configurar"
+              ? "Configura META_ACCESS_TOKEN en las variables de entorno de Vercel para visualizar los datos en vivo."
+              : meta.estado === "error"
+                ? `Meta API Error: ${meta.mensaje}`
+                : "No hay actividad registrada en este período."}
+          </div>
+        )}
+      </section>
+
+      {/* ── DESGLOSE DE RENDIMIENTO POR ANUNCIO (CREATIVOS) ─────────────────── */}
+      <section aria-labelledby="rendimiento-anuncios" className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 id="rendimiento-anuncios" className="font-display text-lg font-bold text-white">
+              Rendimiento por Anuncio (Creativos)
+            </h2>
+            <p className="text-xs text-neutral-400">
+              Identifica qué anuncio genera más prospectos al menor costo
+            </p>
+          </div>
+          {metaOk && meta.anuncios.length > 0 && (
+            <span className="text-xs text-neutral-400">{meta.anuncios.length} anuncios registrados</span>
+          )}
+        </div>
+
+        {metaOk && meta.anuncios.length > 0 ? (
+          <div className="overflow-x-auto rounded-2xl border border-white/10 bg-neutral-900/90 shadow-md">
+            <table className="w-full min-w-[700px] text-left text-sm">
+              <thead>
+                <tr className="border-b border-white/10 bg-white/[0.02] text-xs font-semibold text-neutral-400">
+                  <th className="py-3 px-4">Anuncio / Creativo</th>
+                  <th className="py-3 px-4">Campaña</th>
+                  <th className="py-3 px-4 text-right">Inversión</th>
+                  <th className="py-3 px-4 text-right">Leads</th>
+                  <th className="py-3 px-4 text-right">Coste / Lead</th>
+                  <th className="py-3 px-4 text-right">Clics</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/5">
+                {meta.anuncios.map((ad, idx) => {
+                  const esTop = idx === 0 && ad.leadsTotales > 0;
+                  return (
+                    <tr key={ad.id} className={`hover:bg-white/[0.02] transition-colors ${esTop ? "bg-dlc/[0.03]" : ""}`}>
+                      <td className="py-3.5 px-4 font-medium text-white flex items-center gap-2">
+                        {esTop ? (
+                          <span className="inline-flex items-center gap-1 rounded-full border border-dlc/40 bg-dlc/20 px-2 py-0.5 text-[10px] font-bold text-dlc uppercase">
+                            <Trophy className="size-3" /> Top #1
+                          </span>
+                        ) : (
+                          <span className="text-xs text-neutral-500 font-mono">#{idx + 1}</span>
+                        )}
+                        <span>{ad.nombre}</span>
+                      </td>
+                      <td className="py-3.5 px-4 text-xs text-neutral-400 max-w-[200px] truncate">
+                        {ad.campanaNombre}
+                      </td>
+                      <td className="py-3.5 px-4 text-right font-medium text-neutral-200">
+                        {formatoSoles(ad.gasto, moneda)}
+                      </td>
+                      <td className="py-3.5 px-4 text-right font-bold text-white">
+                        {num.format(ad.leadsTotales)}
+                      </td>
+                      <td className="py-3.5 px-4 text-right font-semibold text-emerald-400">
+                        {ad.costoPorLead !== null ? formatoSoles(ad.costoPorLead, moneda) : "—"}
+                      </td>
+                      <td className="py-3.5 px-4 text-right text-xs text-neutral-400">
+                        {num.format(ad.clics)}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="rounded-2xl border border-white/10 bg-neutral-900/60 p-6 text-center text-xs text-neutral-400">
+            Los anuncios de las 2 campañas activas aparecerán desglosados en esta tabla con su respectivo gasto, leads y costo por lead en cuanto se registren impresiones en Meta.
+          </div>
+        )}
+      </section>
+
+      {/* ── EMBUDO EJECUTIVO DE CONVERSIÓN (FUNNEL) ────────────────────────── */}
+      <section aria-labelledby="embudo-conversion" className="space-y-4">
+        <h2 id="embudo-conversion" className="font-display text-lg font-bold text-white">
+          Embudo de Conversión de Ventas
+        </h2>
+
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+          {/* Paso 1: Inversión */}
+          <div className="rounded-2xl border border-white/10 bg-neutral-900 p-4 space-y-2">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-400 block">
+              1. Inversión Meta
+            </span>
+            <p className="text-xl font-bold text-white">{formatoSoles(gastoMeta, moneda)}</p>
+            <p className="text-[11px] text-neutral-400">Campañas activas</p>
+          </div>
+
+          {/* Paso 2: Visitas / Clics */}
+          <div className="rounded-2xl border border-white/10 bg-neutral-900 p-4 space-y-2">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-400 block">
+              2. Clics / Visitas
+            </span>
+            <p className="text-xl font-bold text-white">{num.format(totalesPropio.visitas)}</p>
+            <p className="text-[11px] text-neutral-400">{totalesPropio.visitantes} visitantes únicos</p>
+          </div>
+
+          {/* Paso 3: Leads por API */}
+          <div className="rounded-2xl border border-white/10 bg-neutral-900 p-4 space-y-2">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-400 block">
+              3. Prospectos Web
+            </span>
+            <p className="text-xl font-bold text-white">{num.format(totalesPropio.leads + totalesPropio.contactos)}</p>
+            <p className="text-[11px] text-neutral-400">
+              {pct(totalesPropio.leads + totalesPropio.contactos, totalesPropio.visitas)} tasa de contacto
+            </p>
+          </div>
+
+          {/* Paso 4: Leads en CRM */}
+          <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/[0.05] p-4 space-y-2">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-400 block">
+              4. Leads en CRM
+            </span>
+            <p className="text-xl font-bold text-emerald-400">{num.format(totalesPropio.recibidos)}</p>
+            <p className="text-[11px] text-emerald-300/80">{tasaLlegadaCRM} confirmados</p>
+          </div>
+
+          {/* Paso 5: Ventas */}
+          <div className="rounded-2xl border border-purple-500/30 bg-purple-500/[0.05] p-4 space-y-2">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-purple-400 block">
+              5. Ventas Cerradas
+            </span>
+            <p className="text-xl font-bold text-purple-300">{num.format(totalesPropio.ventas)}</p>
+            <p className="text-[11px] text-purple-300/80">Cierres confirmados</p>
+          </div>
+        </div>
+      </section>
+
+      {/* ── BITÁCORA DE ÚLTIMOS LEADS ENTRANTES ─────────────────────────────── */}
+      <section aria-labelledby="ultimos-leads" className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 id="ultimos-leads" className="font-display text-lg font-bold text-white">
+            Últimos Prospectos Registrados
+          </h2>
+          {datosPropio && datosPropio.leads.length > 0 && (
+            <span className="text-xs text-neutral-400">Mostrando últimos {datosPropio.leads.length}</span>
+          )}
+        </div>
+
+        {datosPropio && datosPropio.leads.length > 0 ? (
+          <div className="overflow-x-auto rounded-2xl border border-white/10 bg-neutral-900/90 shadow-md">
+            <table className="w-full min-w-[700px] text-left text-sm">
+              <thead>
+                <tr className="border-b border-white/10 bg-white/[0.02] text-xs font-semibold text-neutral-400">
+                  <th className="py-3 px-4">Fecha y Hora</th>
+                  <th className="py-3 px-4">Interés</th>
+                  <th className="py-3 px-4">Inicial</th>
+                  <th className="py-3 px-4">Formulario / Botón</th>
+                  <th className="py-3 px-4">Fuente / Campaña</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/5">
+                {datosPropio.leads.map((l, i) => (
+                  <tr key={i} className="hover:bg-white/[0.02] transition-colors">
+                    <td className="py-3 px-4 font-mono text-xs text-neutral-400 whitespace-nowrap">{l.creado}</td>
+                    <td className="py-3 px-4 font-medium text-white">
+                      <span className="inline-flex items-center gap-1.5 rounded-full border border-dlc/30 bg-dlc/10 px-2.5 py-0.5 text-xs text-dlc font-semibold">
+                        {l.datos?.motivo || "Casa de campo"}
+                      </span>
+                    </td>
+                    <td className="py-3 px-4 text-xs text-neutral-300">{l.datos?.inicial || "—"}</td>
+                    <td className="py-3 px-4 text-xs text-neutral-400">{nombreRastro(l.origen)}</td>
+                    <td className="py-3 px-4 text-xs text-neutral-400">
+                      {FUENTES[l.fuente] ?? l.fuente}
+                      {l.campana && ` · ${l.campana}`}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="rounded-2xl border border-white/10 bg-neutral-900/60 p-6 text-center text-xs text-neutral-400">
+            Aún no hay formularios registrados en este período.
+          </div>
+        )}
+      </section>
+
+      {/* ── SECCIÓN PLEGABLE DE AUDITORÍA TÉCNICA ────────────────────────────── */}
+      <details className="group border-t border-white/10 pt-6">
+        <summary className="flex w-full cursor-pointer list-none items-center justify-between rounded-2xl border border-white/10 bg-neutral-900/60 px-5 py-4 text-left transition-colors hover:bg-neutral-900">
+          <div className="flex items-center gap-2.5">
+            <BarChart3 className="size-4.5 text-neutral-400" />
+            <span className="font-display text-sm font-semibold text-neutral-200">
+              Herramientas de Auditoría Técnica (Gráfico diario, TikTok y Catálogo de Rastros)
+            </span>
+          </div>
+          <ChevronDown className="size-4 text-neutral-400 transition-transform duration-200 group-open:rotate-180" />
+        </summary>
+
+        <div className="mt-4 space-y-6 rounded-2xl border border-white/10 bg-neutral-950 p-6">
+          {/* Gráfico diario */}
+          {datosPropio && datosPropio.dias.length > 0 && (
+            <div className="space-y-4">
+              <h3 className="font-display text-sm font-bold text-white">Evolución Diaria de Visitas y Conversión</h3>
+              <div className="grid gap-6 lg:grid-cols-2">
+                <div className="rounded-xl border border-white/10 bg-neutral-900 p-4">
+                  <p className="text-xs text-neutral-400 mb-2">Visitas por día</p>
+                  <GraficoColumnas titulo="Visitas por día" dias={datosPropio.dias} series={SERIE_VISITAS} />
+                </div>
+                <div className="rounded-xl border border-white/10 bg-neutral-900 p-4">
+                  <p className="text-xs text-neutral-400 mb-2">Clics a WhatsApp y Formularios por día</p>
+                  <GraficoColumnas titulo="Conversiones por día" dias={datosPropio.dias} series={SERIES_CONVERSION} />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Plataformas secundarias (TikTok) */}
+          {plataformas.map((p) => (
+            <div key={p.nombre} className="rounded-xl border border-white/10 bg-neutral-900 p-4">
+              <h4 className="text-xs font-semibold uppercase tracking-wider text-neutral-400">Píxel de {p.nombre}</h4>
+              {p.estado === "ok" && p.eventos?.length ? (
+                <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                  {p.eventos.map((e) => (
+                    <div key={e.evento} className="rounded-lg border border-white/5 bg-black/40 p-2.5">
+                      <span className="text-[11px] text-neutral-400 block">{e.evento}</span>
+                      <span className="text-base font-bold text-white">{num.format(e.total)}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="mt-2 text-xs text-neutral-500">Sin eventos en este período o sin configurar.</p>
+              )}
+            </div>
+          ))}
+        </div>
+      </details>
     </main>
   );
 }

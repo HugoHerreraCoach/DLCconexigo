@@ -13,10 +13,11 @@ export const RANGOS = [
   { dias: 90, etiqueta: "90 días" },
 ] as const;
 
-/** `recibidos`: clics y formularios cuyo mensaje de WhatsApp llegó de verdad (lo confirma el CRM). */
-export type Totales = { visitas: number; visitantes: number; contactos: number; leads: number; recibidos: number; movil: number };
+/** `recibidos`: clics y formularios cuyo mensaje de WhatsApp llegó de verdad (lo confirma el CRM).
+ *  `ventas`: prospectos que cerraron compra confirmados por el CRM. */
+export type Totales = { visitas: number; visitantes: number; contactos: number; leads: number; recibidos: number; ventas: number; movil: number };
 export type Dia = { dia: string; visitas: number; contactos: number; leads: number };
-export type FilaFuente = { fuente: string; visitas: number; visitantes: number; contactos: number; leads: number; recibidos: number };
+export type FilaFuente = { fuente: string; visitas: number; visitantes: number; contactos: number; leads: number; recibidos: number; ventas: number };
 export type FilaCampana = FilaFuente & { campana: string };
 /** Cuántos eventos generó cada elemento del catálogo src/config/rastros.ts. */
 export type FilaOrigen = { origen: string; tipo: "contacto" | "lead"; total: number; recibidos: number };
@@ -43,7 +44,8 @@ export async function obtenerMetricas(dias: number): Promise<ResultadoMetricas> 
     count(DISTINCT visitante) FILTER (WHERE tipo = 'visita')::int AS visitantes,
     count(*) FILTER (WHERE tipo = 'contacto')::int                AS contactos,
     count(*) FILTER (WHERE tipo = 'lead')::int                    AS leads,
-    count(*) FILTER (WHERE recibido_en IS NOT NULL)::int          AS recibidos`;
+    count(*) FILTER (WHERE recibido_en IS NOT NULL)::int          AS recibidos,
+    count(*) FILTER (WHERE venta_en IS NOT NULL OR tipo = 'venta')::int AS ventas`;
   try {
     await asegurarEsquema(db);
 

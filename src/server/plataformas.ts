@@ -30,28 +30,89 @@ const ordenar = (m: Map<string, number>) =>
 
 /* ── Meta: campañas ─────────────────────────────────────────────────────── */
 
-/** Cuenta publicitaria de DLC. Tiene campañas de otros proyectos: solo entran
- *  las que llevan FILTRO en el nombre. */
+/** Cuenta publicitaria de DLC.
+ *  Solo deben considerarse estas 2 campañas oficiales del proyecto Finca Algarrobo:
+ *  - C_01_CONEXIPEMA_FINCAALGARROBO_WHATSAPP
+ *  - C_02_CONEXIPEMA_FINCAALGARROBO_LANDING
+ */
 const META_CUENTA = "act_1107857613612617";
-const META_FILTRO = "ALGARROBO";
 const META_API = "https://graph.facebook.com/v26.0";
+
+export const CAMPANAS_OFICIALES = [
+  "C_01_CONEXIPEMA_FINCAALGARROBO_WHATSAPP",
+  "C_02_CONEXIPEMA_FINCAALGARROBO_LANDING",
+] as const;
+
+/** Filtro estricto: solo cuenta y jala información de estas 2 campañas del proyecto */
+export function esCampanaObjetivo(nombre: string): boolean {
+  if (!nombre) return false;
+  const n = nombre.toUpperCase().trim();
+  return (
+    n.includes("C_01_CONEXIPEMA_FINCAALGARROBO") ||
+    n.includes("C_02_CONEXIPEMA_FINCAALGARROBO") ||
+    (n.includes("FINCAALGARROBO") && (n.includes("C_01") || n.includes("C_02")))
+  );
+}
 
 export type FilaCampanaMeta = {
   id: string;
   nombre: string;
   estado: string;
   gasto: number;
+  /** Presupuesto diario asignado en Meta Ads (S/ día). */
+  presupuestoDiario: number | null;
+  /** Presupuesto total asignado en Meta Ads si fuera lifetime. */
+  presupuestoTotal: number | null;
   /** Formularios instantáneos de Meta (y leads del píxel, si los hubiera). */
   formularios: number;
   /** Conversaciones iniciadas por WhatsApp / Messenger. */
   conversaciones: number;
+  /** Total de leads sumando formularios y conversaciones. */
+  leadsTotales: number;
+  /** Costo por lead (gasto / leadsTotales) o null si no hay leads. */
+  costoPorLead: number | null;
   /** Llegadas a la landing (landing_page_view). */
   visitasWeb: number;
   clics: number;
 };
 
+export type FilaAnuncioMeta = {
+  id: string;
+  nombre: string;
+  campanaId: string;
+  campanaNombre: string;
+  gasto: number;
+  formularios: number;
+  conversaciones: number;
+  leadsTotales: number;
+  costoPorLead: number | null;
+  visitasWeb: number;
+  clics: number;
+  esGanador?: boolean;
+};
+
+export type TotalesMeta = {
+  gasto: number;
+  presupuestoDiarioTotal: number;
+  formularios: number;
+  conversaciones: number;
+  leadsTotales: number;
+  costoPorLead: number | null;
+  visitasWeb: number;
+  clics: number;
+};
+
 export type ResultadoCampanasMeta =
-  | { estado: "ok"; moneda: string; desde: string; hasta: string; filas: FilaCampanaMeta[] }
+  | {
+      estado: "ok";
+      moneda: string;
+      desde: string;
+      hasta: string;
+      filas: FilaCampanaMeta[];
+      anuncios: FilaAnuncioMeta[];
+      anuncioGanador: FilaAnuncioMeta | null;
+      totales: TotalesMeta;
+    }
   | { estado: "sin-configurar" }
   | { estado: "error"; mensaje: string };
 
@@ -59,7 +120,27 @@ type RespuestaInsights = {
   data?: { campaign_id: string; campaign_name: string; spend?: string; actions?: { action_type: string; value: string }[] }[];
   error?: { message?: string };
 };
-type RespuestaCampanas = { data?: { id: string; effective_status?: string }[]; error?: { message?: string } };
+type RespuestaInsightsAds = {
+  data?: {
+    ad_id: string;
+    ad_name: string;
+    campaign_id: string;
+    campaign_name: string;
+    spend?: string;
+    actions?: { action_type: string; value: string }[];
+  }[];
+  error?: { message?: string };
+};
+type RespuestaCampanas = {
+  data?: {
+    id: string;
+    name?: string;
+    effective_status?: string;
+    daily_budget?: string;
+    lifetime_budget?: string;
+  }[];
+  error?: { message?: string };
+};
 type RespuestaCuenta = { currency?: string; error?: { message?: string } };
 
 /** Fecha YYYY-MM-DD en hora de Lima (la cuenta también está en America/Lima). */
@@ -81,33 +162,156 @@ export async function campanasMeta(dias: number): Promise<ResultadoCampanasMeta>
   const rango = encodeURIComponent(JSON.stringify({ since: desde, until: hasta }));
 
   try {
-    // En secuencia: tres llamadas pequeñas y cacheadas.
-    const cuenta = await graph<RespuestaCuenta>(`${META_CUENTA}?fields=currency`, token);
-    const insights = await graph<RespuestaInsights>(
-      `${META_CUENTA}/insights?level=campaign&time_range=${rango}&fields=campaign_id,campaign_name,spend,actions&limit=200`,
-      token,
-    );
-    const campanas = await graph<RespuestaCampanas>(`${META_CUENTA}/campaigns?fields=effective_status&limit=200`, token);
-    const estados = new Map((campanas.data ?? []).map((c) => [c.id, c.effective_status ?? "?"]));
+    // Consultas en paralelo para rapidez: cuenta, lista de campañas, insights de campañas y de anuncios
+    const [cuenta, campanas, insightsCampanas, insightsAds] = await Promise.all([
+      graph<RespuestaCuenta>(`${META_CUENTA}?fields=currency`, token),
+      graph<RespuestaCampanas>(
+        `${META_CUENTA}/campaigns?fields=id,name,effective_status,daily_budget,lifetime_budget&limit=200`,
+        token,
+      ),
+      graph<RespuestaInsights>(
+        `${META_CUENTA}/insights?level=campaign&time_range=${rango}&fields=campaign_id,campaign_name,spend,actions&limit=200`,
+        token,
+      ).catch(() => ({ data: [] } as RespuestaInsights)),
+      graph<RespuestaInsightsAds>(
+        `${META_CUENTA}/insights?level=ad&time_range=${rango}&fields=ad_id,ad_name,campaign_id,campaign_name,spend,actions&limit=200`,
+        token,
+      ).catch(() => ({ data: [] } as RespuestaInsightsAds)),
+    ]);
 
-    const filas = (insights.data ?? [])
-      .filter((c) => c.campaign_name.toUpperCase().includes(META_FILTRO))
-      .map((c) => {
-        const accion = (tipo: string) => Number(c.actions?.find((a) => a.action_type === tipo)?.value ?? 0);
+    const todasCampanas = campanas.data ?? [];
+    const estados = new Map(todasCampanas.map((c) => [c.id, c.effective_status ?? "?"]));
+    const nombres = new Map(todasCampanas.map((c) => [c.id, c.name ?? ""]));
+    const presupuestosDiarios = new Map(
+      todasCampanas.map((c) => [c.id, c.daily_budget ? Number(c.daily_budget) / 100 : null]),
+    );
+    const presupuestosTotales = new Map(
+      todasCampanas.map((c) => [c.id, c.lifetime_budget ? Number(c.lifetime_budget) / 100 : null]),
+    );
+
+    // 1. Filtrar únicamente las 2 campañas objetivo
+    const campanasObjetivoMap = new Map<string, { id: string; nombre: string; estado: string }>();
+    for (const c of todasCampanas) {
+      if (esCampanaObjetivo(c.name ?? "")) {
+        campanasObjetivoMap.set(c.id, { id: c.id, nombre: c.name ?? "", estado: c.effective_status ?? "PROGRAMADO" });
+      }
+    }
+
+    type FilaInsightCampana = { campaign_id: string; campaign_name: string; spend?: string; actions?: { action_type: string; value: string }[] };
+    const mapaInsightsCampanas = new Map<string, FilaInsightCampana>();
+    for (const c of insightsCampanas.data ?? []) {
+      if (esCampanaObjetivo(c.campaign_name)) {
+        mapaInsightsCampanas.set(c.campaign_id, c);
+        if (!campanasObjetivoMap.has(c.campaign_id)) {
+          campanasObjetivoMap.set(c.campaign_id, {
+            id: c.campaign_id,
+            nombre: c.campaign_name,
+            estado: estados.get(c.campaign_id) ?? "PROGRAMADO",
+          });
+        }
+      }
+    }
+
+    const filas: FilaCampanaMeta[] = Array.from(campanasObjetivoMap.values()).map((c) => {
+      const ins = mapaInsightsCampanas.get(c.id);
+      const accion = (tipo: string) =>
+        Number(ins?.actions?.find((a: { action_type: string; value: string }) => a.action_type === tipo)?.value ?? 0);
+      const gasto = Number(ins?.spend ?? 0);
+      const formularios = accion("lead");
+      const conversaciones = accion("onsite_conversion.messaging_conversation_started_7d");
+      const leadsTotales = formularios + conversaciones;
+      const costoPorLead = leadsTotales > 0 ? gasto / leadsTotales : null;
+
+      return {
+        id: c.id,
+        nombre: c.nombre || nombres.get(c.id) || "Campaña Finca Algarrobo",
+        estado: c.estado,
+        gasto,
+        presupuestoDiario: presupuestosDiarios.get(c.id) ?? null,
+        presupuestoTotal: presupuestosTotales.get(c.id) ?? null,
+        formularios,
+        conversaciones,
+        leadsTotales,
+        costoPorLead,
+        visitasWeb: accion("landing_page_view"),
+        clics: accion("link_click"),
+      };
+    }).sort((a, b) => b.gasto - a.gasto || b.leadsTotales - a.leadsTotales);
+
+    // 2. Filtrar y procesar anuncios de estas 2 campañas
+    const anuncios: FilaAnuncioMeta[] = (insightsAds.data ?? [])
+      .filter((ad) => esCampanaObjetivo(ad.campaign_name))
+      .map((ad) => {
+        const accion = (tipo: string) =>
+          Number(ad.actions?.find((a: { action_type: string; value: string }) => a.action_type === tipo)?.value ?? 0);
+        const gasto = Number(ad.spend ?? 0);
+        const formularios = accion("lead");
+        const conversaciones = accion("onsite_conversion.messaging_conversation_started_7d");
+        const leadsTotales = formularios + conversaciones;
+        const costoPorLead = leadsTotales > 0 ? gasto / leadsTotales : null;
+
         return {
-          id: c.campaign_id,
-          nombre: c.campaign_name,
-          estado: estados.get(c.campaign_id) ?? "?",
-          gasto: Number(c.spend ?? 0),
-          formularios: accion("lead"),
-          conversaciones: accion("onsite_conversion.messaging_conversation_started_7d"),
+          id: ad.ad_id,
+          nombre: ad.ad_name,
+          campanaId: ad.campaign_id,
+          campanaNombre: ad.campaign_name,
+          gasto,
+          formularios,
+          conversaciones,
+          leadsTotales,
+          costoPorLead,
           visitasWeb: accion("landing_page_view"),
           clics: accion("link_click"),
         };
       })
-      .sort((a, b) => b.gasto - a.gasto);
+      .sort((a, b) => {
+        // Ordenar anuncios: los que tienen leads primero por menor costo por lead, luego por más leads
+        if (a.leadsTotales > 0 && b.leadsTotales === 0) return -1;
+        if (b.leadsTotales > 0 && a.leadsTotales === 0) return 1;
+        if (a.leadsTotales > 0 && b.leadsTotales > 0) {
+          if (a.costoPorLead !== null && b.costoPorLead !== null && a.costoPorLead !== b.costoPorLead) {
+            return a.costoPorLead - b.costoPorLead;
+          }
+          return b.leadsTotales - a.leadsTotales;
+        }
+        return b.clics - a.clics || b.gasto - a.gasto;
+      });
 
-    return { estado: "ok", moneda: cuenta.currency ?? "PEN", desde, hasta, filas };
+    // 3. Determinar el Anuncio Ganador (Mejor Rendimiento)
+    let anuncioGanador: FilaAnuncioMeta | null = null;
+    if (anuncios.length > 0) {
+      anuncioGanador = { ...anuncios[0], esGanador: true };
+      anuncios[0].esGanador = true;
+    }
+
+    // 4. Totales consolidados de Meta
+    const gastoTotal = filas.reduce((acc, f) => acc + f.gasto, 0);
+    const presupuestoDiarioTotal = filas.reduce((acc, f) => acc + (f.presupuestoDiario ?? 0), 0);
+    const formulariosTotal = filas.reduce((acc, f) => acc + f.formularios, 0);
+    const conversacionesTotal = filas.reduce((acc, f) => acc + f.conversaciones, 0);
+    const leadsTotales = formulariosTotal + conversacionesTotal;
+
+    const totales: TotalesMeta = {
+      gasto: gastoTotal,
+      presupuestoDiarioTotal,
+      formularios: formulariosTotal,
+      conversaciones: conversacionesTotal,
+      leadsTotales,
+      costoPorLead: leadsTotales > 0 ? gastoTotal / leadsTotales : null,
+      visitasWeb: filas.reduce((acc, f) => acc + f.visitasWeb, 0),
+      clics: filas.reduce((acc, f) => acc + f.clics, 0),
+    };
+
+    return {
+      estado: "ok",
+      moneda: cuenta.currency ?? "PEN",
+      desde,
+      hasta,
+      filas,
+      anuncios,
+      anuncioGanador,
+      totales,
+    };
   } catch (e) {
     return { estado: "error", mensaje: e instanceof Error ? e.message : String(e) };
   }

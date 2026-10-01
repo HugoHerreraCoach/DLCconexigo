@@ -33,7 +33,7 @@ export async function POST(req: Request) {
   if (crudo.length > 2000) return Response.json({ ok: false }, { status: 413 });
   if (!firmaValida(crudo, req.headers.get("x-conexigo-firma"), secreto)) return Response.json({ ok: false }, { status: 401 });
 
-  let cuerpo: { codigo?: unknown; recibido_en?: unknown };
+  let cuerpo: { codigo?: unknown; recibido_en?: unknown; venta?: unknown };
   try {
     cuerpo = JSON.parse(crudo);
   } catch {
@@ -44,11 +44,14 @@ export async function POST(req: Request) {
 
   const fecha = typeof cuerpo.recibido_en === "string" ? new Date(cuerpo.recibido_en) : new Date();
   const recibido = Number.isNaN(fecha.getTime()) ? new Date() : fecha;
+  const esVenta = cuerpo.venta === true;
 
   try {
     await asegurarEsquema(sql);
     const [fila] = await sql<Fila[]>`
-      UPDATE eventos SET recibido_en = coalesce(recibido_en, ${recibido})
+      UPDATE eventos 
+      SET recibido_en = coalesce(recibido_en, ${recibido}),
+          venta_en = CASE WHEN ${esVenta} THEN coalesce(venta_en, ${recibido}) ELSE venta_en END
       WHERE codigo = ${codigo}
       RETURNING tipo, origen, fuente, campana, creado`;
     if (!fila) return Response.json({ ok: true, encontrado: false });
