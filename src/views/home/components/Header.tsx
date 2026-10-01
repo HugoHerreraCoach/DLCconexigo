@@ -43,7 +43,7 @@ export function Header() {
 
           <div className="flex items-center">
             <a
-              href={enlaceWhatsApp(MENSAJES.visita)}
+              href={enlaceWhatsApp(MENSAJES.general)}
               {...marcaRastro("header-agendar-visita")}
               target="_blank"
               rel="noopener noreferrer"
