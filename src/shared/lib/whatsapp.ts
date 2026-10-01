@@ -5,13 +5,10 @@ export function enlaceWhatsApp(mensaje: string): string {
   return `https://wa.me/${SITIO.whatsapp}?text=${encodeURIComponent(mensaje)}`;
 }
 
-/* ── Número de referencia ────────────────────────────────────────────────────
-   Cada clic a WhatsApp (y cada formulario) lleva al inicio del mensaje el
-   código oficial "L-1 - Hola...". El CRM ConexiGO lo lee y avisa a
-   /api/whatsapp/recibido para confirmar que el prospecto llegó efectivamente. */
-
-export const CODIGO_FIJO = "L-1";
-export const PREFIJO_REFERENCIA = "L";
+/* Los mensajes de WhatsApp salen tal cual, SIN código de referencia (acordado
+   con el equipo el 2026-10-01): ya no se mide si el mensaje llegó al CRM.
+   PATRON_REFERENCIA solo lo usa /api/whatsapp/recibido para aceptar avisos de
+   códigos antiguos ("L-1", "L-2"…) que el CRM pudiera reenviar. */
 export const PATRON_REFERENCIA = /^L-?[1-9]\d{0,9}$/i;
 
 export const CLAVE_NOMBRE = "dlc_lead_nombre";
@@ -44,30 +41,15 @@ export function mensajeConNombre(base: string, nombre?: string): string {
   return `${baseLimpia}. Mi nombre es: ${nombreFinal}`;
 }
 
-/** Pone siempre el identificador "L-1" al inicio del mensaje */
-export const conReferencia = (mensaje: string, codigo: string = CODIGO_FIJO) => {
-  const prefijo = (codigo || CODIGO_FIJO).trim();
-  const sinCodigo = mensaje.replace(/^L-?\w+\s*[-:\n]?\s*/i, "").trim();
-  return `${prefijo} - ${sinCodigo}`;
-};
-
-/** Abre WhatsApp con "L-1" fijo al inicio del mensaje sin demoras */
-export async function abrirWhatsApp(enlace: string, pedirCodigo?: () => Promise<string | null>) {
+/** Abre WhatsApp con el mensaje tal cual. `medir` registra el «Cliente
+ *  potencial» (píxeles + registro propio) antes de salir de la página.
+ *  En escritorio abre otra pestaña; en celular navega directo (abre la app). */
+export function abrirWhatsApp(enlace: string, medir?: () => void) {
+  medir?.();
   const escritorio = !/Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
-  const ventana = escritorio ? window.open("", "_blank") : null;
+  const ventana = escritorio ? window.open(enlace, "_blank") : null;
   if (ventana) ventana.opener = null;
-
-  // Ejecutamos el registro de medición en segundo plano
-  if (pedirCodigo) {
-    void pedirCodigo();
-  }
-
-  const url = new URL(enlace);
-  const textoActual = url.searchParams.get("text") ?? "";
-  url.searchParams.set("text", conReferencia(textoActual, CODIGO_FIJO));
-
-  if (ventana) ventana.location.href = url.toString();
-  else window.location.href = url.toString();
+  else window.location.href = enlace;
 }
 
 export const MENSAJES = {

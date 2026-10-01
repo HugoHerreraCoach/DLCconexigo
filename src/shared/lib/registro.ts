@@ -59,7 +59,7 @@ function atribucion(): Atribucion {
 
 type Extra = { origen?: string; datos?: Record<string, string> };
 
-function cuerpoDe(tipo: TipoEvento, extra: Extra & { reservar?: boolean }) {
+function cuerpoDe(tipo: TipoEvento, extra: Extra) {
   return JSON.stringify({
     tipo,
     visitante: visitante(),
@@ -67,26 +67,6 @@ function cuerpoDe(tipo: TipoEvento, extra: Extra & { reservar?: boolean }) {
     movil: matchMedia("(max-width: 767px)").matches,
     ...extra,
   });
-}
-
-/** Registra un clic a WhatsApp o un formulario y devuelve el número de
- *  referencia que le asignó el servidor ("L-27"). Espera como máximo 2,5 s:
- *  si no llega, devuelve null y WhatsApp se abre sin número. */
-export async function registrarConCodigo(tipo: "contacto" | "lead", extra: Extra): Promise<string | null> {
-  try {
-    const res = await fetch("/api/eventos", {
-      method: "POST",
-      body: cuerpoDe(tipo, { ...extra, reservar: true }),
-      headers: { "Content-Type": "application/json" },
-      keepalive: true,
-      signal: AbortSignal.timeout(2500),
-    });
-    if (!res.ok || res.status === 204) return null;
-    const { codigo } = (await res.json()) as { codigo?: unknown };
-    return typeof codigo === "string" ? codigo : null;
-  } catch {
-    return null; /* la medición nunca debe impedir que se abra WhatsApp */
-  }
 }
 
 export function registrar(tipo: TipoEvento, extra: Extra = {}) {

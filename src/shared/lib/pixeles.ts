@@ -1,11 +1,19 @@
 import { RASTROS, type IdRastro } from "@/config/rastros";
-import { registrarConCodigo } from "@/shared/lib/registro";
+import { registrar } from "@/shared/lib/registro";
 
 /* Eventos de conversión para Meta, TikTok y el registro propio del panel. Los
    componentes llaman a estas funciones y no a fbq/ttq directamente: si un píxel
    no está cargado (ID vacío, bloqueador de anuncios) la llamada no hace nada.
-   Cada evento lleva el id del elemento que lo generó (catálogo en
-   src/config/rastros.ts) y su nombre legible. */
+
+   Regla acordada con el equipo (2026-10-01): SOLO existe «Cliente potencial».
+   Toda acción que abre WhatsApp —cualquier botón o enlace, el chat flotante y
+   el formulario— envía UN único evento:
+     · Meta:   Lead        («Cliente potencial» en el Administrador de anuncios)
+     · TikTok: SubmitForm  (TikTok lo muestra como «Lead»)
+   Sin Contact ni eventos personalizados, para no contar dos veces la misma
+   persona. Cada evento lleva el id del elemento (catálogo en
+   src/config/rastros.ts) y su nombre legible. El registro propio sí distingue
+   «contacto» (botón de WhatsApp) de «lead» (formulario) para el panel. */
 
 type Fbq = (accion: "track" | "trackCustom", evento: string, datos?: Record<string, unknown>) => void;
 type Ttq = { track: (evento: string, datos?: Record<string, unknown>) => void };
@@ -19,40 +27,21 @@ declare global {
 
 const CONTENIDO = { content_name: "Finca Algarrobo", content_category: "Terrenos campestres" };
 
-/** Se envió un formulario: es el lead calificado. Devuelve el número de
- *  referencia ("L-27") que va en la primera línea del mensaje, o null. */
-export function rastrearLead(id: IdRastro, datos: { motivo: string; inicial: string; ubicacion: string; paso: string }) {
+/** El único evento de conversión de los píxeles: «Cliente potencial». */
+function clientePotencial(id: IdRastro, datos?: Record<string, string>) {
   const rastro = RASTROS[id].nombre;
-  // Meta Pixel: evento estándar Lead, evento personalizado Lead/lead, y Contact
   window.fbq?.("track", "Lead", { ...CONTENIDO, ...datos, origen: id, rastro });
-  window.fbq?.("trackCustom", "Lead", { ...CONTENIDO, ...datos, origen: id, rastro });
-  window.fbq?.("trackCustom", "lead", { ...CONTENIDO, ...datos, origen: id, rastro });
-  window.fbq?.("track", "Contact", { ...CONTENIDO, ...datos, origen: id, rastro });
-
-  // TikTok Pixel: SubmitForm, Lead y Contact
   window.ttq?.track("SubmitForm", { ...CONTENIDO, description: rastro });
-  window.ttq?.track("Lead", { ...CONTENIDO, description: rastro });
-  window.ttq?.track("Contact", { ...CONTENIDO, description: rastro });
-
-  return registrarConCodigo("lead", { origen: id, datos });
 }
 
-/** Clic en un botón/enlace de WhatsApp. `id` dice cuál fue, para comparar
- *  en el panel y en el Administrador de anuncios. Devuelve el número de
- *  referencia asignado, o null. */
+/** Se envió un formulario. */
+export function rastrearLead(id: IdRastro, datos: { motivo: string; inicial: string; ubicacion: string; paso: string }) {
+  clientePotencial(id, datos);
+  registrar("lead", { origen: id, datos });
+}
+
+/** Clic en un botón/enlace de WhatsApp o mensaje desde el chat flotante. */
 export function rastrearContacto(id: IdRastro) {
-  const rastro = RASTROS[id].nombre;
-  // Meta Pixel: medimos tanto Lead (estándar y personalizado) como Contact
-  // para que cualquier campaña optimizada para Lead o Contact reciba la conversión.
-  window.fbq?.("track", "Lead", { ...CONTENIDO, origen: id, rastro });
-  window.fbq?.("trackCustom", "Lead", { ...CONTENIDO, origen: id, rastro });
-  window.fbq?.("trackCustom", "lead", { ...CONTENIDO, origen: id, rastro });
-  window.fbq?.("track", "Contact", { ...CONTENIDO, origen: id, rastro });
-
-  // TikTok Pixel: registramos Contact, Lead y SubmitForm para garantizar la atribución.
-  window.ttq?.track("Contact", { ...CONTENIDO, description: rastro });
-  window.ttq?.track("Lead", { ...CONTENIDO, description: rastro });
-  window.ttq?.track("SubmitForm", { ...CONTENIDO, description: rastro });
-
-  return registrarConCodigo("contacto", { origen: id });
+  clientePotencial(id);
+  registrar("contacto", { origen: id });
 }

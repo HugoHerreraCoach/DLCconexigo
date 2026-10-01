@@ -4,8 +4,9 @@ import { useEffect, useState } from "react";
 import Image from "next/image";
 import { AnimatePresence, motion } from "framer-motion";
 import { Send, X, Calendar, Headset } from "lucide-react";
-import { marcaRastro } from "@/config/rastros";
-import { enlaceWhatsApp, MENSAJES, mensajeConNombre } from "@/shared/lib/whatsapp";
+import { idRastro, marcaRastro } from "@/config/rastros";
+import { rastrearContacto } from "@/shared/lib/pixeles";
+import { abrirWhatsApp, enlaceWhatsApp, MENSAJES, mensajeConNombre } from "@/shared/lib/whatsapp";
 import { IconoWhatsApp } from "@/shared/ui/IconoWhatsApp";
 
 const OPCIONES_CHAT = [
@@ -13,11 +14,13 @@ const OPCIONES_CHAT = [
     icono: Calendar,
     titulo: "Agendar visita este fin de semana",
     mensaje: MENSAJES.visita,
+    rastro: idRastro("chat-flotante-visita"),
   },
   {
     icono: Headset,
     titulo: "Quiero que me contacte un asesor ahora mismo",
     mensaje: MENSAJES.asesor,
+    rastro: idRastro("chat-flotante-asesor"),
   },
 ] as const;
 
@@ -143,7 +146,7 @@ export function WhatsAppFlotante() {
                     <a
                       key={opcion.titulo}
                       href={enlaceWhatsApp(mensajeConNombre(opcion.mensaje))}
-                      {...marcaRastro("whatsapp-flotante")}
+                      {...marcaRastro(opcion.rastro)}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="group flex items-center justify-between gap-2.5 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2.5 text-xs text-neutral-200 transition-all hover:border-dlc/50 hover:bg-dlc/[0.08] hover:text-white"
@@ -163,8 +166,9 @@ export function WhatsAppFlotante() {
             <div className="border-t border-white/10 bg-neutral-900/60 p-3">
               <form
                 onSubmit={(e) => {
+                  // Enter en el cuadro de texto: mismo «Cliente potencial» que el botón de enviar.
                   e.preventDefault();
-                  window.open(enlaceMensajePersonalizado, "_blank");
+                  abrirWhatsApp(enlaceMensajePersonalizado, () => rastrearContacto("chat-flotante-mensaje"));
                 }}
                 className="flex items-center gap-2"
               >
@@ -177,7 +181,7 @@ export function WhatsAppFlotante() {
                 />
                 <a
                   href={enlaceMensajePersonalizado}
-                  {...marcaRastro("whatsapp-flotante")}
+                  {...marcaRastro("chat-flotante-mensaje")}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex size-10 shrink-0 items-center justify-center rounded-xl bg-[#25D366] text-white shadow-sm transition-all hover:bg-[#20bd5a] hover:scale-105 active:scale-95"

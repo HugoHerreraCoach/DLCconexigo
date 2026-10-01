@@ -56,16 +56,14 @@ export function asegurarEsquema(db: postgres.Sql) {
     // sin políticas nadie las lee por ahí. Nosotros entramos como dueños de la
     // tabla, y el dueño no pasa por RLS.
     .then(() => db`ALTER TABLE eventos ENABLE ROW LEVEL SECURITY`)
-    // Número de referencia ("L-27", primera línea del mensaje de WhatsApp), cuándo llegó de
-    // verdad (lo avisa el CRM en /api/whatsapp/recibido) y venta atribuida si se cerró.
+    // Columnas de la etapa con código de referencia y aviso del CRM (recibido y
+    // venta). Desde el 2026-10-01 los mensajes salen sin código y ya no se llenan;
+    // se conservan para no romper el histórico ni /api/whatsapp/recibido.
+    // ⚠️ Aquí NO se borran datos ni se reinicia nada: esta función corre en cada
+    // arranque del servidor.
     .then(() => db`ALTER TABLE eventos ADD COLUMN IF NOT EXISTS codigo text, ADD COLUMN IF NOT EXISTS recibido_en timestamptz, ADD COLUMN IF NOT EXISTS venta_en timestamptz`)
     .then(() => db`DROP INDEX IF EXISTS eventos_codigo_uidx`)
     .then(() => db`CREATE INDEX IF NOT EXISTS eventos_codigo_idx ON eventos (codigo) WHERE codigo IS NOT NULL`)
-    // Números correlativos de referencia: L-1, L-2, L-3… (ver whatsapp.ts).
-    .then(() => db`CREATE SEQUENCE IF NOT EXISTS eventos_referencia_seq`)
-    // Limpieza de datos de prueba previos al lanzamiento oficial de campañas de hoy (30-09-2026)
-    .then(() => db`DELETE FROM eventos WHERE creado < '2026-09-30 23:25:00-05'`)
-    .then(() => db`ALTER SEQUENCE IF EXISTS eventos_referencia_seq RESTART WITH 1`)
     .catch((e) => {
       esquemaListo = null; // reintentar en la próxima petición
       throw e;

@@ -64,6 +64,10 @@ export const RASTROS = {
   "footer-documentacion": { nombre: "Enlace «Documentación» del pie", tipo: "contacto", seccion: "Pie de página" },
   "footer-whatsapp": { nombre: "Enlace «Escríbenos por WhatsApp» del pie", tipo: "contacto", seccion: "Pie de página" },
   "whatsapp-flotante": { nombre: "Botón flotante de WhatsApp", tipo: "contacto", seccion: "Toda la página" },
+  // Chat flotante (se abre con el botón verde): dos opciones rápidas y mensaje libre.
+  "chat-flotante-visita": { nombre: "Chat flotante · «Agendar visita este fin de semana»", tipo: "contacto", seccion: "Chat flotante" },
+  "chat-flotante-asesor": { nombre: "Chat flotante · «Quiero que me contacte un asesor»", tipo: "contacto", seccion: "Chat flotante" },
+  "chat-flotante-mensaje": { nombre: "Chat flotante · mensaje escrito por el visitante", tipo: "contacto", seccion: "Chat flotante" },
 
   // ── Reservado: no usar en componentes ──
   "sin-identificar": { nombre: "Enlace de WhatsApp sin identificar", tipo: "contacto", seccion: "Falta marcaRastro()" },

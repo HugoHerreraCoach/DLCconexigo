@@ -11,15 +11,13 @@ import {
   DollarSign,
   Filter,
   LogOut,
-  MessageSquare,
   Sparkles,
   Target,
-  Trash2,
   TrendingUp,
   Trophy,
   Users,
 } from "lucide-react";
-import { limpiarMetricasPrueba, salir } from "@/app/panel/acciones";
+import { salir } from "@/app/panel/acciones";
 import { esRastro, RASTROS } from "@/config/rastros";
 import { RANGOS, type Metricas, type ResultadoMetricas, type Totales } from "@/server/metricas";
 import type { FilaAnuncioMeta, FilaCampanaMeta, Plataforma, ResultadoCampanasMeta } from "@/server/plataformas";
@@ -160,7 +158,6 @@ export function PanelView({
 
   const totalLeadsGerencial = Math.max(leadsMeta, totalesPropio.leads + totalesPropio.contactos);
   const cplGerencial = gastoMeta > 0 && totalLeadsGerencial > 0 ? gastoMeta / totalLeadsGerencial : null;
-  const tasaLlegadaCRM = pct(totalesPropio.recibidos, totalesPropio.contactos + totalesPropio.leads);
 
   // Formato del texto de rango para la UI
   const esPersonalizado = Boolean(desde && hasta);
@@ -348,7 +345,7 @@ export function PanelView({
               Métricas Principales · Meta Ads
             </h2>
 
-            <div className="grid grid-cols-2 gap-3.5 sm:grid-cols-3 lg:grid-cols-6">
+            <div className="grid grid-cols-2 gap-3.5 sm:grid-cols-3 lg:grid-cols-5">
               {/* 1. Inversión Meta */}
               <TarjetaEjecutiva
                 titulo="Inversión Meta"
@@ -413,21 +410,7 @@ export function PanelView({
                 }
               />
 
-              {/* 5. Leads Finales en CRM */}
-              <TarjetaEjecutiva
-                titulo="Leads en CRM"
-                valor={num.format(totalesPropio.recibidos)}
-                icono={MessageSquare}
-                colorIcono="text-[#25D366]"
-                destacada={true}
-                detalle={
-                  <p className="text-xs text-emerald-400 font-medium">
-                    {tasaLlegadaCRM} llegaron a WhatsApp
-                  </p>
-                }
-              />
-
-              {/* 6. Ventas Cerradas */}
+              {/* 5. Ventas Cerradas */}
               <TarjetaEjecutiva
                 titulo="Ventas Cerradas"
                 valor={num.format(totalesPropio.ventas)}
@@ -671,7 +654,7 @@ export function PanelView({
               Embudo de Conversión de Ventas
             </h2>
 
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
               <div className="rounded-2xl border border-white/10 bg-neutral-900 p-4 space-y-2">
                 <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-400 block">
                   1. Inversión Meta
@@ -698,17 +681,9 @@ export function PanelView({
                 </p>
               </div>
 
-              <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/[0.05] p-4 space-y-2">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-400 block">
-                  4. Leads en CRM
-                </span>
-                <p className="text-xl font-bold text-emerald-400">{num.format(totalesPropio.recibidos)}</p>
-                <p className="text-[11px] text-emerald-300/80">{tasaLlegadaCRM} confirmados</p>
-              </div>
-
               <div className="rounded-2xl border border-purple-500/30 bg-purple-500/[0.05] p-4 space-y-2">
                 <span className="text-[10px] font-bold uppercase tracking-wider text-purple-400 block">
-                  5. Ventas Cerradas
+                  4. Ventas Cerradas
                 </span>
                 <p className="text-xl font-bold text-purple-300">{num.format(totalesPropio.ventas)}</p>
                 <p className="text-[11px] text-purple-300/80">Cierres confirmados</p>
@@ -857,25 +832,6 @@ export function PanelView({
         </summary>
 
         <div className="mt-4 space-y-6 rounded-2xl border border-white/10 bg-neutral-950 p-6">
-          {/* Botón para reiniciar métricas de prueba */}
-          <div className="rounded-xl border border-red-500/20 bg-red-500/[0.03] p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-            <div>
-              <p className="text-xs font-semibold text-red-200">Limpieza de datos de prueba</p>
-              <p className="text-[11px] text-neutral-400 mt-0.5">
-                Vacía los registros de prueba previos y reinicia la numeración de prospectos WhatsApp a L-1.
-              </p>
-            </div>
-            <form action={limpiarMetricasPrueba}>
-              <button
-                type="submit"
-                className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl border border-red-500/30 bg-red-500/10 px-3.5 py-2 text-xs font-semibold text-red-300 transition-colors hover:bg-red-500/20 active:scale-95"
-              >
-                <Trash2 className="size-3.5" />
-                <span>Vaciar datos de prueba</span>
-              </button>
-            </form>
-          </div>
-
           {/* Gráfico diario */}
           {datosPropio && datosPropio.dias.length > 0 && (
             <div className="space-y-4">

@@ -39,9 +39,8 @@ export function Pixeles() {
       const enlace = (e.target as Element).closest?.("a[href*='wa.me/']");
       // El id sale del atributo data-rastro (marcaRastro en src/config/rastros.ts).
       if (enlace instanceof HTMLAnchorElement) {
-        // No se deja abrir el enlace tal cual: primero se registra el clic y el
-        // servidor asigna el número de referencia ("L-1 - ...") que va al inicio
-        // del mensaje (ver abrirWhatsApp en src/shared/lib/whatsapp.ts).
+        // Se registra el «Cliente potencial» y se abre WhatsApp con el mensaje
+        // (más el nombre, si la persona ya lo dio en el formulario), sin código.
         e.preventDefault();
         const id = enlace.dataset.rastro;
         let hrefFinal = enlace.href;
@@ -51,7 +50,7 @@ export function Pixeles() {
           url.searchParams.set("text", mensajeConNombre(texto));
           hrefFinal = url.toString();
         } catch {}
-        void abrirWhatsApp(hrefFinal, () => rastrearContacto(esRastro(id) ? id : "sin-identificar"));
+        abrirWhatsApp(hrefFinal, () => rastrearContacto(esRastro(id) ? id : "sin-identificar"));
       }
     };
     document.addEventListener("click", alClic, { capture: true });
