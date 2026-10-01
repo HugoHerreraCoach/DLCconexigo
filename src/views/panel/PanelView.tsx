@@ -331,10 +331,10 @@ export function PanelView({
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <span className="rounded-lg border border-white/10 bg-neutral-900/80 px-2.5 py-1 font-mono text-[11px] text-neutral-200">
-                C_01_CONEXIPEMA_FINCAALGARROBO_WHATSAPP
+                C_03_CONEXIPEMA_FINCAALGARROBO_WHATSAPP
               </span>
               <span className="rounded-lg border border-white/10 bg-neutral-900/80 px-2.5 py-1 font-mono text-[11px] text-neutral-200">
-                C_02_CONEXIPEMA_FINCAALGARROBO_LANDING
+                C_04_CONEXIPEMA_FINCAALGARROBO_LANDING
               </span>
             </div>
           </div>
@@ -517,8 +517,8 @@ export function PanelView({
                           <span className="font-mono text-xs text-neutral-400 block break-all">{campana.nombre}</span>
                           <h4 className="font-display text-base font-bold text-white">
                             {campana.nombre.includes("WHATSAPP")
-                              ? "Tráfico Directo a WhatsApp (C_01)"
-                              : "Conversión en Landing Page (C_02)"}
+                              ? "Tráfico Directo a WhatsApp (C_03)"
+                              : "Conversión en Landing Page (C_04)"}
                           </h4>
                         </div>
                         <span className={`shrink-0 rounded-full border px-2.5 py-1 text-[11px] font-semibold ${est.color}`}>
@@ -532,7 +532,7 @@ export function PanelView({
                           <span className="mt-0.5 block text-xs sm:text-sm font-bold text-dlc">
                             {campana.presupuestoDiario !== null
                               ? `${formatoSoles(campana.presupuestoDiario, moneda)}/d`
-                              : "S/ 55.00/d"}
+                              : "S/ 70.00/d"}
                           </span>
                         </div>
                         <div>

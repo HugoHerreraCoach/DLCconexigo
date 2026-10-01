@@ -32,15 +32,15 @@ const ordenar = (m: Map<string, number>) =>
 
 /** Cuenta publicitaria de DLC.
  *  Solo deben considerarse estas 2 campañas oficiales del proyecto Finca Algarrobo:
- *  - C_01_CONEXIPEMA_FINCAALGARROBO_WHATSAPP
- *  - C_02_CONEXIPEMA_FINCAALGARROBO_LANDING
+ *  - C_03_CONEXIPEMA_FINCAALGARROBO_WHATSAPP
+ *  - C_04_CONEXIPEMA_FINCAALGARROBO_LANDING
  */
 const META_CUENTA = "act_1107857613612617";
 const META_API = "https://graph.facebook.com/v26.0";
 
 export const CAMPANAS_OFICIALES = [
-  "C_01_CONEXIPEMA_FINCAALGARROBO_WHATSAPP",
-  "C_02_CONEXIPEMA_FINCAALGARROBO_LANDING",
+  "C_03_CONEXIPEMA_FINCAALGARROBO_WHATSAPP",
+  "C_04_CONEXIPEMA_FINCAALGARROBO_LANDING",
 ] as const;
 
 /** Filtro estricto: solo cuenta y jala información de estas 2 campañas del proyecto */
@@ -48,9 +48,9 @@ export function esCampanaObjetivo(nombre: string): boolean {
   if (!nombre) return false;
   const n = nombre.toUpperCase().trim();
   return (
-    n.includes("C_01_CONEXIPEMA_FINCAALGARROBO") ||
-    n.includes("C_02_CONEXIPEMA_FINCAALGARROBO") ||
-    (n.includes("FINCAALGARROBO") && (n.includes("C_01") || n.includes("C_02")))
+    n.includes("C_03_CONEXIPEMA_FINCAALGARROBO") ||
+    n.includes("C_04_CONEXIPEMA_FINCAALGARROBO") ||
+    (n.includes("FINCAALGARROBO") && (n.includes("C_03") || n.includes("C_04")))
   );
 }
 
