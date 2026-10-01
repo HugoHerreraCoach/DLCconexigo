@@ -153,12 +153,14 @@ async function graph<T extends { error?: { message?: string } }>(ruta: string, t
   return json;
 }
 
-export async function campanasMeta(dias: number): Promise<ResultadoCampanasMeta> {
+export type ParametroRango = number | { desde: string; hasta: string };
+
+export async function campanasMeta(rangoParam: ParametroRango): Promise<ResultadoCampanasMeta> {
   const token = process.env.META_ACCESS_TOKEN;
   if (!token) return { estado: "sin-configurar" };
 
-  const desde = fechaLima(Date.now() - (dias - 1) * DIA_MS);
-  const hasta = fechaLima(Date.now());
+  const desde = typeof rangoParam === "object" ? rangoParam.desde : fechaLima(Date.now() - (rangoParam - 1) * DIA_MS);
+  const hasta = typeof rangoParam === "object" ? rangoParam.hasta : fechaLima(Date.now());
   const rango = encodeURIComponent(JSON.stringify({ since: desde, until: hasta }));
 
   try {
@@ -338,14 +340,16 @@ function nombreTikTok(tipo: string) {
   return tipo;
 }
 
-export async function estadisticasTikTok(dias: number): Promise<Plataforma> {
+export async function estadisticasTikTok(rangoParam: ParametroRango): Promise<Plataforma> {
   const token = process.env.TIKTOK_ACCESS_TOKEN;
   const anunciante = process.env.TIKTOK_ADVERTISER_ID;
   if (!token || !anunciante || !SITIO.pixeles.tiktok) return { nombre: "TikTok", estado: "sin-configurar" };
 
-  const diasTikTok = Math.min(dias, 30);
   const fecha = (ms: number) => new Date(ms).toISOString().slice(0, 10);
-  const rango = { start_date: fecha(Date.now() - (diasTikTok - 1) * DIA_MS), end_date: fecha(Date.now()) };
+  const esObj = typeof rangoParam === "object";
+  const desde = esObj ? rangoParam.desde : fecha(Date.now() - (Math.min(rangoParam, 30) - 1) * DIA_MS);
+  const hasta = esObj ? rangoParam.hasta : fecha(Date.now());
+  const rango = { start_date: desde, end_date: hasta };
   const params = new URLSearchParams({
     advertiser_id: anunciante,
     pixel_ids: JSON.stringify([SITIO.pixeles.tiktok]),
@@ -371,7 +375,7 @@ export async function estadisticasTikTok(dias: number): Promise<Plataforma> {
     return {
       nombre: "TikTok",
       estado: "ok",
-      rango: `${rango.start_date} → ${rango.end_date} (UTC${dias > 30 ? ", máx. 30 días" : ""})`,
+      rango: `${rango.start_date} → ${rango.end_date}`,
       eventos: ordenar(totales),
     };
   } catch (e) {

@@ -33,9 +33,11 @@ export type Metricas = {
   leads: Lead[];
 };
 
+export type ParametroRango = number | { desde: string; hasta: string };
+
 export type ResultadoMetricas = { estado: "ok"; datos: Metricas } | { estado: "sin-bd" } | { estado: "error"; mensaje: string };
 
-export async function obtenerMetricas(dias: number): Promise<ResultadoMetricas> {
+export async function obtenerMetricas(rango: ParametroRango): Promise<ResultadoMetricas> {
   if (!sql) return { estado: "sin-bd" };
   const db = sql;
   // Fragmento nuevo en cada uso: un fragmento de postgres.js es una consulta y no se reutiliza.
@@ -49,40 +51,51 @@ export async function obtenerMetricas(dias: number): Promise<ResultadoMetricas> 
   try {
     await asegurarEsquema(db);
 
-    // Inicio del rango (medianoche de Lima de hace dias-1 días) y del período anterior, para comparar.
-    const [{ desde, antes }] = await db<{ desde: Date; antes: Date }[]>`
-      SELECT (date_trunc('day', now() AT TIME ZONE ${ZONA}) - make_interval(days => ${dias - 1})) AT TIME ZONE ${ZONA} AS desde,
-             (date_trunc('day', now() AT TIME ZONE ${ZONA}) - make_interval(days => ${2 * dias - 1})) AT TIME ZONE ${ZONA} AS antes`;
+    const esObj = typeof rango === "object";
+    const desdeStr = esObj ? rango.desde : null;
+    const hastaStr = esObj ? rango.hasta : null;
+    const dias = typeof rango === "number" ? rango : 7;
 
-    // En secuencia y no con Promise.all: son consultas pequeñas y así no dependen
-    // de que el servidor acepte varias en tubería por la misma conexión.
+    // Inicio del rango y del período anterior.
+    // Se filtran los datos de prueba anteriores al inicio oficial (30-09-2026).
+    const [{ desde, hasta, antes }] = esObj
+      ? await db<{ desde: Date; hasta: Date; antes: Date }[]>`
+          SELECT greatest((${desdeStr}::date)::timestamp AT TIME ZONE ${ZONA}, '2026-09-30 00:00:00-05'::timestamptz) AS desde,
+                 ((${hastaStr}::date + interval '1 day'))::timestamp AT TIME ZONE ${ZONA} AS hasta,
+                 ((${desdeStr}::date - interval '1 day' * (greatest((${hastaStr}::date - ${desdeStr}::date), 0) + 1)))::timestamp AT TIME ZONE ${ZONA} AS antes`
+      : await db<{ desde: Date; hasta: Date; antes: Date }[]>`
+          SELECT greatest((date_trunc('day', now() AT TIME ZONE ${ZONA}) - make_interval(days => ${dias - 1})) AT TIME ZONE ${ZONA}, '2026-09-30 00:00:00-05'::timestamptz) AS desde,
+                 (date_trunc('day', now() AT TIME ZONE ${ZONA}) + interval '1 day') AT TIME ZONE ${ZONA} AS hasta,
+                 (date_trunc('day', now() AT TIME ZONE ${ZONA}) - make_interval(days => ${2 * dias - 1})) AT TIME ZONE ${ZONA} AS antes`;
+
+    // Consultas acotadas entre desde y hasta
     const totales = await db<Totales[]>`SELECT ${conteos()}, count(*) FILTER (WHERE tipo = 'visita' AND movil)::int AS movil
-                    FROM eventos WHERE creado >= ${desde}`;
+                    FROM eventos WHERE creado >= ${desde} AND creado < ${hasta}`;
     const anteriores = await db<Totales[]>`SELECT ${conteos()}, count(*) FILTER (WHERE tipo = 'visita' AND movil)::int AS movil
                     FROM eventos WHERE creado >= ${antes} AND creado < ${desde}`;
     const porDia = await db<Dia[]>`
         WITH d AS (
-          SELECT generate_series(date_trunc('day', ${desde}::timestamptz AT TIME ZONE ${ZONA}),
-                                 date_trunc('day', now() AT TIME ZONE ${ZONA}), interval '1 day') AS dia
+          SELECT generate_series(date_trunc('day', ${desde}),
+                                 date_trunc('day', ${hasta} - interval '1 second'), interval '1 day') AS dia
         )
         SELECT to_char(d.dia, 'YYYY-MM-DD') AS dia,
                count(e.id) FILTER (WHERE e.tipo = 'visita')::int   AS visitas,
                count(e.id) FILTER (WHERE e.tipo = 'contacto')::int AS contactos,
                count(e.id) FILTER (WHERE e.tipo = 'lead')::int     AS leads
         FROM d LEFT JOIN eventos e
-          ON date_trunc('day', e.creado AT TIME ZONE ${ZONA}) = d.dia AND e.creado >= ${desde}
+          ON date_trunc('day', e.creado AT TIME ZONE ${ZONA}) = d.dia AND e.creado >= ${desde} AND e.creado < ${hasta}
         GROUP BY d.dia ORDER BY d.dia`;
-    const fuentes = await db<FilaFuente[]>`SELECT fuente, ${conteos()} FROM eventos WHERE creado >= ${desde}
+    const fuentes = await db<FilaFuente[]>`SELECT fuente, ${conteos()} FROM eventos WHERE creado >= ${desde} AND creado < ${hasta}
                        GROUP BY fuente ORDER BY visitas DESC, leads DESC`;
     const campanas = await db<FilaCampana[]>`SELECT campana, fuente, ${conteos()} FROM eventos
-                        WHERE creado >= ${desde} AND campana IS NOT NULL
+                        WHERE creado >= ${desde} AND creado < ${hasta} AND campana IS NOT NULL
                         GROUP BY campana, fuente ORDER BY leads DESC, contactos DESC, visitas DESC LIMIT 20`;
     const origenes = await db<FilaOrigen[]>`SELECT coalesce(origen, 'sin-identificar') AS origen, tipo, count(*)::int AS total,
                               count(*) FILTER (WHERE recibido_en IS NOT NULL)::int AS recibidos
-                       FROM eventos WHERE creado >= ${desde} AND tipo IN ('contacto', 'lead')
+                       FROM eventos WHERE creado >= ${desde} AND creado < ${hasta} AND tipo IN ('contacto', 'lead')
                        GROUP BY 1, 2 ORDER BY total DESC`;
     const leads = await db<Lead[]>`SELECT to_char(creado AT TIME ZONE ${ZONA}, 'YYYY-MM-DD HH24:MI') AS creado, fuente, campana, origen, datos
-                 FROM eventos WHERE creado >= ${desde} AND tipo = 'lead'
+                 FROM eventos WHERE creado >= ${desde} AND creado < ${hasta} AND tipo = 'lead'
                  ORDER BY eventos.creado DESC LIMIT 25`;
 
     return {

@@ -62,6 +62,9 @@ export function asegurarEsquema(db: postgres.Sql) {
     .then(() => db`CREATE UNIQUE INDEX IF NOT EXISTS eventos_codigo_uidx ON eventos (codigo) WHERE codigo IS NOT NULL`)
     // Números correlativos de referencia: L-1, L-2, L-3… (ver whatsapp.ts).
     .then(() => db`CREATE SEQUENCE IF NOT EXISTS eventos_referencia_seq`)
+    // Limpieza de datos de prueba previos al lanzamiento oficial de campañas de hoy (30-09-2026)
+    .then(() => db`DELETE FROM eventos WHERE creado < '2026-09-30 23:25:00-05'`)
+    .then(() => db`ALTER SEQUENCE IF EXISTS eventos_referencia_seq RESTART WITH 1`)
     .catch((e) => {
       esquemaListo = null; // reintentar en la próxima petición
       throw e;
