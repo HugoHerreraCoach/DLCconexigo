@@ -39,7 +39,11 @@ export async function POST(req: Request) {
   } catch {
     return Response.json({ ok: false, error: "json inválido" }, { status: 400 });
   }
-  const codigo = typeof cuerpo.codigo === "string" ? cuerpo.codigo.toUpperCase() : "";
+  const rawCodigo = typeof cuerpo.codigo === "string" ? cuerpo.codigo.trim().toUpperCase() : "";
+  // Normaliza códigos como "L1" a "L-1" para que siempre coincida con la base de datos
+  const codigo = rawCodigo.startsWith("L") && !rawCodigo.startsWith("L-")
+    ? "L-" + rawCodigo.slice(1)
+    : rawCodigo;
   if (!PATRON_REFERENCIA.test(codigo)) return Response.json({ ok: false, error: "código inválido" }, { status: 400 });
 
   const fecha = typeof cuerpo.recibido_en === "string" ? new Date(cuerpo.recibido_en) : new Date();

@@ -3,9 +3,9 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import { AnimatePresence, motion } from "framer-motion";
-import { Send, X, Calendar, BadgePercent, FileText, Video } from "lucide-react";
+import { Send, X, Calendar, Headset } from "lucide-react";
 import { marcaRastro } from "@/config/rastros";
-import { enlaceWhatsApp, MENSAJES } from "@/shared/lib/whatsapp";
+import { enlaceWhatsApp, MENSAJES, mensajeConNombre } from "@/shared/lib/whatsapp";
 import { IconoWhatsApp } from "@/shared/ui/IconoWhatsApp";
 
 const OPCIONES_CHAT = [
@@ -15,19 +15,9 @@ const OPCIONES_CHAT = [
     mensaje: MENSAJES.visita,
   },
   {
-    icono: BadgePercent,
-    titulo: "Consultar plan de cuotas (0% interés)",
-    mensaje: MENSAJES.cuotas,
-  },
-  {
-    icono: FileText,
-    titulo: "Recibir ficha técnica y plano",
-    mensaje: MENSAJES.ficha,
-  },
-  {
-    icono: Video,
-    titulo: "Pedir video recorrido del terreno",
-    mensaje: MENSAJES.video,
+    icono: Headset,
+    titulo: "Quiero que me contacte un asesor ahora mismo",
+    mensaje: MENSAJES.asesor,
   },
 ] as const;
 
@@ -61,8 +51,8 @@ export function WhatsAppFlotante() {
 
   const enlaceMensajePersonalizado = enlaceWhatsApp(
     textoMensaje.trim()
-      ? `Hola Grupo DLC, ${textoMensaje.trim()}`
-      : MENSAJES.general
+      ? mensajeConNombre(`Hola Grupo DLC, ${textoMensaje.trim()}`)
+      : mensajeConNombre(MENSAJES.general)
   );
 
   return (
@@ -135,8 +125,9 @@ export function WhatsAppFlotante() {
                   </p>
                   <p className="mt-1 text-neutral-300">
                     Estamos en preventa de terrenos campestres desde{" "}
-                    <strong className="text-dlc">S/ 58,000</strong> a 15 min de
-                    Chiclayo. ¿Cómo te podemos ayudar hoy?
+                    <strong className="text-dlc">S/ 58,000</strong> a 15 min del
+                    Real Plaza de Chiclayo, Capote, a 3 min de la zona urbana.
+                    ¿Cómo te podemos ayudar hoy?
                   </p>
                 </div>
               </div>
@@ -151,7 +142,7 @@ export function WhatsAppFlotante() {
                   return (
                     <a
                       key={opcion.titulo}
-                      href={enlaceWhatsApp(opcion.mensaje)}
+                      href={enlaceWhatsApp(mensajeConNombre(opcion.mensaje))}
                       {...marcaRastro("whatsapp-flotante")}
                       target="_blank"
                       rel="noopener noreferrer"

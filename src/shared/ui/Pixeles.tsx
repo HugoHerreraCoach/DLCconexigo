@@ -5,7 +5,7 @@ import Script from "next/script";
 import { esRastro } from "@/config/rastros";
 import { SITIO } from "@/config/sitio";
 import { rastrearContacto } from "@/shared/lib/pixeles";
-import { abrirWhatsApp } from "@/shared/lib/whatsapp";
+import { abrirWhatsApp, mensajeConNombre } from "@/shared/lib/whatsapp";
 import { registrar } from "@/shared/lib/registro";
 
 /* Carga el píxel de Meta y el de TikTok (cada uno solo si tiene ID) y registra
@@ -40,11 +40,18 @@ export function Pixeles() {
       // El id sale del atributo data-rastro (marcaRastro en src/config/rastros.ts).
       if (enlace instanceof HTMLAnchorElement) {
         // No se deja abrir el enlace tal cual: primero se registra el clic y el
-        // servidor asigna el número de referencia ("L-27") que va en la primera
-        // línea del mensaje (ver abrirWhatsApp en src/shared/lib/whatsapp.ts).
+        // servidor asigna el número de referencia ("L-1 - ...") que va al inicio
+        // del mensaje (ver abrirWhatsApp en src/shared/lib/whatsapp.ts).
         e.preventDefault();
         const id = enlace.dataset.rastro;
-        void abrirWhatsApp(enlace.href, () => rastrearContacto(esRastro(id) ? id : "sin-identificar"));
+        let hrefFinal = enlace.href;
+        try {
+          const url = new URL(enlace.href);
+          const texto = url.searchParams.get("text") ?? "";
+          url.searchParams.set("text", mensajeConNombre(texto));
+          hrefFinal = url.toString();
+        } catch {}
+        void abrirWhatsApp(hrefFinal, () => rastrearContacto(esRastro(id) ? id : "sin-identificar"));
       }
     };
     document.addEventListener("click", alClic, { capture: true });

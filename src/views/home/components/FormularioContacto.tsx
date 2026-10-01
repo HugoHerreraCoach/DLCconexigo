@@ -6,7 +6,7 @@ import { ArrowRight, Check, Gift, Loader2, User } from "lucide-react";
 import { INICIALES, MOTIVOS, type Consulta } from "@/config/contenido";
 import { EASE } from "@/shared/lib/motion";
 import { rastrearLead } from "@/shared/lib/pixeles";
-import { abrirWhatsApp, enlaceWhatsApp } from "@/shared/lib/whatsapp";
+import { abrirWhatsApp, enlaceWhatsApp, guardarNombreLead } from "@/shared/lib/whatsapp";
 import { IconoWhatsApp } from "@/shared/ui/IconoWhatsApp";
 
 type Estado = "reposo" | "enviando" | "enviado";
@@ -66,13 +66,10 @@ export function FormularioContacto() {
     if (errs.nombre) return document.getElementById(idNombre)?.focus();
     if (errs.celular) return document.getElementById(idCelular)?.focus();
 
-    const mensaje = [
-      `Hola Grupo DLC, soy ${campos.nombre.trim()}.`,
-      `¡Quiero reclamar mi Bono: Cerco vivo en cada lote! 🎁`,
-      `Me interesa Finca Algarrobo para: ${campos.motivo.toLowerCase()}.`,
-      `Inicial estimada: ${campos.inicial}.`,
-      `Mi celular: +51 ${campos.celular.replace(/\D/g, "")}.`,
-    ].join("\n");
+    const nombre = campos.nombre.trim();
+    guardarNombreLead(nombre);
+
+    const mensaje = `Hola, quiero más información del proyecto Finca Algarrobo. Mi nombre es: ${nombre}`;
 
     const datos = {
       motivo: campos.motivo,
@@ -127,10 +124,13 @@ export function FormularioContacto() {
               autoComplete="name"
               placeholder="Nombre y apellidos*"
               value={campos.nombre}
-              onChange={(e) => actualizar("nombre", e.target.value)}
+              onChange={(e) => {
+                actualizar("nombre", e.target.value);
+                guardarNombreLead(e.target.value);
+              }}
               aria-invalid={Boolean(errores.nombre)}
               aria-describedby={errores.nombre ? `${idNombre}-e` : undefined}
-              className="w-full bg-transparent text-sm text-neutral-900 placeholder:text-neutral-400 focus:outline-none"
+              className="w-full bg-transparent text-sm text-neutral-900 placeholder:text-neutral-400 outline-none focus:outline-none focus:ring-0 focus-visible:outline-none border-none ring-0 shadow-none"
             />
           </div>
           <MensajeError id={`${idNombre}-e`} texto={errores.nombre} />
@@ -161,7 +161,7 @@ export function FormularioContacto() {
               onChange={(e) => actualizar("celular", e.target.value)}
               aria-invalid={Boolean(errores.celular)}
               aria-describedby={errores.celular ? `${idCelular}-e` : undefined}
-              className="w-full bg-transparent text-sm text-neutral-900 placeholder:text-neutral-400 focus:outline-none"
+              className="w-full bg-transparent text-sm text-neutral-900 placeholder:text-neutral-400 outline-none focus:outline-none focus:ring-0 focus-visible:outline-none border-none ring-0 shadow-none"
             />
           </div>
           <MensajeError id={`${idCelular}-e`} texto={errores.celular} />
@@ -180,13 +180,22 @@ export function FormularioContacto() {
                   key={m}
                   type="button"
                   onClick={() => actualizar("motivo", m)}
-                  className={`flex h-11 items-center justify-center rounded-xl border px-3 text-center text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
+                  className={`group relative flex h-11 items-center justify-between rounded-xl border px-3 sm:px-3.5 text-center text-xs sm:text-sm font-semibold transition-all cursor-pointer active:scale-[0.98] ${
                     seleccionado
-                      ? "border-neutral-900 bg-neutral-950 text-white shadow-sm"
-                      : "border-neutral-200 bg-neutral-50/80 text-neutral-600 hover:border-neutral-300 hover:bg-neutral-100"
+                      ? "border-emerald-600 bg-emerald-50 text-emerald-950 ring-2 ring-emerald-500/25 shadow-xs"
+                      : "border-neutral-200 bg-neutral-50/70 text-neutral-600 hover:border-neutral-300 hover:bg-neutral-100/80 hover:text-neutral-900"
                   }`}
                 >
-                  {m}
+                  <span className="truncate">{m}</span>
+                  <span
+                    className={`flex size-4 shrink-0 items-center justify-center rounded-full transition-all ${
+                      seleccionado
+                        ? "bg-emerald-600 text-white scale-100"
+                        : "border border-neutral-300 bg-white group-hover:border-neutral-400 scale-90"
+                    }`}
+                  >
+                    {seleccionado && <Check className="size-2.5 stroke-[3]" />}
+                  </span>
                 </button>
               );
             })}
@@ -206,13 +215,24 @@ export function FormularioContacto() {
                   key={ini}
                   type="button"
                   onClick={() => actualizar("inicial", ini)}
-                  className={`flex h-11 items-center justify-center rounded-xl border px-2.5 text-center text-xs font-semibold transition-all cursor-pointer ${
+                  className={`group relative flex h-11 items-center justify-between rounded-xl border px-2.5 sm:px-3 text-center transition-all cursor-pointer active:scale-[0.98] ${
                     seleccionado
-                      ? "border-neutral-900 bg-neutral-950 text-white shadow-sm"
-                      : "border-neutral-200 bg-neutral-50/80 text-neutral-600 hover:border-neutral-300 hover:bg-neutral-100"
+                      ? "border-emerald-600 bg-emerald-50 text-emerald-950 ring-2 ring-emerald-500/25 shadow-xs"
+                      : "border-neutral-200 bg-neutral-50/70 text-neutral-600 hover:border-neutral-300 hover:bg-neutral-100/80 hover:text-neutral-900"
                   }`}
                 >
-                  {ini}
+                  <span className="text-[11px] sm:text-xs leading-tight font-semibold text-left truncate mr-1">
+                    {ini}
+                  </span>
+                  <span
+                    className={`flex size-3.5 sm:size-4 shrink-0 items-center justify-center rounded-full transition-all ${
+                      seleccionado
+                        ? "bg-emerald-600 text-white scale-100"
+                        : "border border-neutral-300 bg-white group-hover:border-neutral-400 scale-90"
+                    }`}
+                  >
+                    {seleccionado && <Check className="size-2 sm:size-2.5 stroke-[3]" />}
+                  </span>
                 </button>
               );
             })}
