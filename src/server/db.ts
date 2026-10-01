@@ -59,7 +59,8 @@ export function asegurarEsquema(db: postgres.Sql) {
     // Número de referencia ("L-27", primera línea del mensaje de WhatsApp), cuándo llegó de
     // verdad (lo avisa el CRM en /api/whatsapp/recibido) y venta atribuida si se cerró.
     .then(() => db`ALTER TABLE eventos ADD COLUMN IF NOT EXISTS codigo text, ADD COLUMN IF NOT EXISTS recibido_en timestamptz, ADD COLUMN IF NOT EXISTS venta_en timestamptz`)
-    .then(() => db`CREATE UNIQUE INDEX IF NOT EXISTS eventos_codigo_uidx ON eventos (codigo) WHERE codigo IS NOT NULL`)
+    .then(() => db`DROP INDEX IF EXISTS eventos_codigo_uidx`)
+    .then(() => db`CREATE INDEX IF NOT EXISTS eventos_codigo_idx ON eventos (codigo) WHERE codigo IS NOT NULL`)
     // Números correlativos de referencia: L-1, L-2, L-3… (ver whatsapp.ts).
     .then(() => db`CREATE SEQUENCE IF NOT EXISTS eventos_referencia_seq`)
     // Limpieza de datos de prueba previos al lanzamiento oficial de campañas de hoy (30-09-2026)

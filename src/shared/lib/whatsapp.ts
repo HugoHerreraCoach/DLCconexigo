@@ -6,14 +6,11 @@ export function enlaceWhatsApp(mensaje: string): string {
 }
 
 /* ── Número de referencia ────────────────────────────────────────────────────
-   Cada clic a WhatsApp (y cada formulario) lleva en el inicio del mensaje un
-   código correlativo: "L-1 - Hola...", "L-2 - Hola...". Lo asigna el servidor
-   (/api/eventos con `reservar`, secuencia de Postgres) al registrar el clic, y
-   queda guardado con la campaña, la fuente y el botón (tabla `eventos`).
-   Cuando el mensaje LLEGA de verdad, el CRM ConexiGO lee el código y avisa a
-   /api/whatsapp/recibido, que marca ese clic como recibido. Así el panel
-   distingue "hizo clic" de "el mensaje llegó". */
+   Cada clic a WhatsApp (y cada formulario) lleva al inicio del mensaje el
+   código oficial "L-1 - Hola...". El CRM ConexiGO lo lee y avisa a
+   /api/whatsapp/recibido para confirmar que el prospecto llegó efectivamente. */
 
+export const CODIGO_FIJO = "L-1";
 export const PREFIJO_REFERENCIA = "L";
 export const PATRON_REFERENCIA = /^L-?[1-9]\d{0,9}$/i;
 
@@ -47,37 +44,27 @@ export function mensajeConNombre(base: string, nombre?: string): string {
   return `${baseLimpia}. Mi nombre es: ${nombreFinal}`;
 }
 
-/** Pone el número de referencia al inicio del mensaje: "L-1 - Hola, quiero..." */
-export const conReferencia = (mensaje: string, codigo: string) => {
-  const sinCodigo = mensaje.replace(/^L-?\d+\s*[-:\n]?\s*/i, "").trim();
-  return `${codigo} - ${sinCodigo}`;
+/** Pone siempre el identificador "L-1" al inicio del mensaje */
+export const conReferencia = (mensaje: string, codigo: string = CODIGO_FIJO) => {
+  const prefijo = (codigo || CODIGO_FIJO).trim();
+  const sinCodigo = mensaje.replace(/^L-?\w+\s*[-:\n]?\s*/i, "").trim();
+  return `${prefijo} - ${sinCodigo}`;
 };
 
-function obtenerCodigoFallback(): string {
-  if (typeof window === "undefined") return `${PREFIJO_REFERENCIA}-1`;
-  try {
-    const actual = parseInt(localStorage.getItem("dlc_ref_seq") ?? "0", 10) + 1;
-    localStorage.setItem("dlc_ref_seq", String(actual));
-    return `${PREFIJO_REFERENCIA}-${actual}`;
-  } catch {
-    return `${PREFIJO_REFERENCIA}-1`;
-  }
-}
-
-/** Abre WhatsApp con el número de referencia al inicio del mensaje. */
-export async function abrirWhatsApp(enlace: string, pedirCodigo: () => Promise<string | null>) {
+/** Abre WhatsApp con "L-1" fijo al inicio del mensaje sin demoras */
+export async function abrirWhatsApp(enlace: string, pedirCodigo?: () => Promise<string | null>) {
   const escritorio = !/Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
   const ventana = escritorio ? window.open("", "_blank") : null;
   if (ventana) ventana.opener = null;
 
-  let codigo = await pedirCodigo();
-  if (!codigo) {
-    codigo = obtenerCodigoFallback();
+  // Ejecutamos el registro de medición en segundo plano
+  if (pedirCodigo) {
+    void pedirCodigo();
   }
 
   const url = new URL(enlace);
   const textoActual = url.searchParams.get("text") ?? "";
-  url.searchParams.set("text", conReferencia(textoActual, codigo));
+  url.searchParams.set("text", conReferencia(textoActual, CODIGO_FIJO));
 
   if (ventana) ventana.location.href = url.toString();
   else window.location.href = url.toString();

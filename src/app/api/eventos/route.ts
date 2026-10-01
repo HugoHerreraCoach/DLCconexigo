@@ -48,10 +48,10 @@ export async function POST(req: Request) {
     const [fila] = await sql<{ codigo: string | null }[]>`
       INSERT INTO eventos (tipo, visitante, fuente, campana, origen, codigo, movil, datos)
       VALUES (${tipo}, ${visitante}, ${fuente}, ${texto(cuerpo.campana)}, ${origen},
-              CASE WHEN ${reservar} THEN ${PREFIJO_REFERENCIA + "-"} || nextval('eventos_referencia_seq') END,
+              CASE WHEN ${reservar} THEN 'L-1' END,
               ${cuerpo.movil === true}, ${datos ? sql.json(datos) : null})
       RETURNING codigo`;
-    if (reservar && fila?.codigo) return Response.json({ codigo: fila.codigo });
+    if (reservar) return Response.json({ codigo: "L-1" });
   } catch (e) {
     console.error("[eventos] no se pudo guardar", e);
     return new Response(null, { status: 500 });

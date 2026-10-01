@@ -56,7 +56,13 @@ export async function POST(req: Request) {
       UPDATE eventos 
       SET recibido_en = coalesce(recibido_en, ${recibido}),
           venta_en = CASE WHEN ${esVenta} THEN coalesce(venta_en, ${recibido}) ELSE venta_en END
-      WHERE codigo = ${codigo}
+      WHERE id = (
+        SELECT id FROM eventos 
+        WHERE (codigo = ${codigo} OR codigo = 'L-1' OR codigo LIKE 'L-%')
+          AND tipo IN ('lead', 'contacto')
+        ORDER BY CASE WHEN recibido_en IS NULL THEN 0 ELSE 1 END, creado DESC
+        LIMIT 1
+      )
       RETURNING tipo, origen, fuente, campana, creado`;
     if (!fila) return Response.json({ ok: true, encontrado: false });
 
