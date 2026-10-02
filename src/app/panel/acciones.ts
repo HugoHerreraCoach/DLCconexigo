@@ -3,7 +3,7 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { sql } from "@/server/db";
-import { COOKIE_PANEL, DURACION_SESION, contrasenaCorrecta, firma } from "@/server/sesion-panel";
+import { COOKIE_PANEL, DURACION_SESION, contrasenaCorrecta, firma, sesionValida } from "@/server/sesion-panel";
 
 export async function ingresar(formulario: FormData) {
   const intento = String(formulario.get("contrasena") ?? "");
@@ -27,11 +27,15 @@ export async function salir() {
   redirect("/panel");
 }
 
+/** Vacía las métricas del panel (tabla `eventos`, la única que usa la landing)
+ *  para empezar de cero tras las pruebas. Una acción de servidor se puede
+ *  llamar desde fuera de la página, así que la sesión se comprueba AQUÍ, no
+ *  solo en la pantalla: sin sesión válida no se borra nada. */
 export async function limpiarMetricasPrueba() {
-  if (!sql) return;
+  if (!(await sesionValida())) redirect("/panel");
+  if (!sql) redirect("/panel");
   try {
-    await sql`TRUNCATE TABLE eventos RESTART IDENTITY`;
-    await sql`ALTER SEQUENCE IF EXISTS eventos_referencia_seq RESTART WITH 1`;
+    await sql`DELETE FROM eventos`;
   } catch (e) {
     console.error("[panel] Error al limpiar métricas", e);
   }

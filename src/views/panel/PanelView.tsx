@@ -13,12 +13,12 @@ import {
   MessageSquare,
   Sparkles,
   Target,
-  Trash2,
   TrendingUp,
   Trophy,
   Users,
 } from "lucide-react";
 import { limpiarMetricasPrueba, salir } from "@/app/panel/acciones";
+import { BotonVaciarMetricas } from "@/views/panel/BotonVaciarMetricas";
 import { esRastro, RASTROS } from "@/config/rastros";
 import { RANGOS, type Metricas, type ResultadoMetricas, type Totales } from "@/server/metricas";
 import type { FilaAnuncioMeta, FilaCampanaMeta, Plataforma, ResultadoCampanasMeta } from "@/server/plataformas";
@@ -846,17 +846,11 @@ export function PanelView({
             <div>
               <p className="text-xs font-semibold text-red-200">Limpieza de datos de prueba</p>
               <p className="text-[11px] text-neutral-400 mt-0.5">
-                Vacía los registros de prueba previos y reinicia la numeración de prospectos WhatsApp a L-1.
+                Borra todas las métricas del panel (visitas, clics y formularios). Pide confirmación y solo funciona con la sesión iniciada.
               </p>
             </div>
             <form action={limpiarMetricasPrueba}>
-              <button
-                type="submit"
-                className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl border border-red-500/30 bg-red-500/10 px-3.5 py-2 text-xs font-semibold text-red-300 transition-colors hover:bg-red-500/20 active:scale-95"
-              >
-                <Trash2 className="size-3.5" />
-                <span>Vaciar datos de prueba</span>
-              </button>
+              <BotonVaciarMetricas className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl border border-red-500/30 bg-red-500/10 px-3.5 py-2 text-xs font-semibold text-red-300 transition-colors hover:bg-red-500/20 active:scale-95" />
             </form>
           </div>
 
