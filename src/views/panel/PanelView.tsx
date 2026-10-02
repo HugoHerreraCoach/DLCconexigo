@@ -10,13 +10,15 @@ import {
   DollarSign,
   Filter,
   LogOut,
+  MessageSquare,
   Sparkles,
   Target,
+  Trash2,
   TrendingUp,
   Trophy,
   Users,
 } from "lucide-react";
-import { salir } from "@/app/panel/acciones";
+import { limpiarMetricasPrueba, salir } from "@/app/panel/acciones";
 import { esRastro, RASTROS } from "@/config/rastros";
 import { RANGOS, type Metricas, type ResultadoMetricas, type Totales } from "@/server/metricas";
 import type { FilaAnuncioMeta, FilaCampanaMeta, Plataforma, ResultadoCampanasMeta } from "@/server/plataformas";
@@ -108,11 +110,10 @@ function TarjetaEjecutiva({
 }) {
   return (
     <div
-      className={`relative overflow-hidden rounded-2xl border p-5 transition-all ${
-        destacada
+      className={`relative overflow-hidden rounded-2xl border p-5 transition-all ${destacada
           ? "border-dlc/50 bg-gradient-to-br from-neutral-900 via-neutral-900 to-dlc/10 shadow-[0_4px_24px_rgba(253,185,12,0.12)]"
           : "border-white/10 bg-neutral-900/80 hover:border-white/20"
-      }`}
+        }`}
     >
       <div className="flex items-center justify-between">
         <span className="text-xs font-semibold uppercase tracking-wider text-neutral-400">{titulo}</span>
@@ -164,6 +165,7 @@ export function PanelView({
 
   const totalLeadsGerencial = Math.max(leadsMeta, totalesPropio.leads + totalesPropio.contactos);
   const cplGerencial = gastoMeta > 0 && totalLeadsGerencial > 0 ? gastoMeta / totalLeadsGerencial : null;
+  const tasaLlegadaCRM = pct(totalesPropio.recibidos, totalesPropio.contactos + totalesPropio.leads);
 
   // Formato del texto de rango para la UI
   const esPersonalizado = Boolean(desde && hasta);
@@ -314,7 +316,7 @@ export function PanelView({
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <span className="rounded-lg border border-white/10 bg-neutral-900/80 px-2.5 py-1 font-mono text-[11px] text-neutral-200">
-                C_03_CONEXIPEMA_FINCAALGARROBO_WHATSAPP
+                C_N1_CONEXIPEMA_FINCAALGARROBO_WHATSAPP
               </span>
               <span className="rounded-lg border border-white/10 bg-neutral-900/80 px-2.5 py-1 font-mono text-[11px] text-neutral-200">
                 C_04_CONEXIPEMA_FINCAALGARROBO_LANDING
@@ -328,7 +330,7 @@ export function PanelView({
               Métricas Principales · Meta Ads
             </h2>
 
-            <div className="grid grid-cols-2 gap-3.5 sm:grid-cols-3 lg:grid-cols-5">
+            <div className="grid grid-cols-2 gap-3.5 sm:grid-cols-3 lg:grid-cols-6">
               {/* 1. Inversión Meta */}
               <TarjetaEjecutiva
                 titulo="Inversión Meta"
@@ -339,7 +341,7 @@ export function PanelView({
                   <p className="text-xs text-neutral-400">
                     {metaOk && meta.totales.presupuestoDiarioTotal > 0
                       ? `Presupuesto: ${formatoSoles(meta.totales.presupuestoDiarioTotal, moneda)} / día`
-                      : "Presupuesto: S/ 110.00 / día"}
+                      : "Presupuesto: S/ 140.00 / día"}
                   </p>
                 }
               />
@@ -393,7 +395,21 @@ export function PanelView({
                 }
               />
 
-              {/* 5. Ventas Cerradas */}
+              {/* 5. Leads Finales en CRM */}
+              <TarjetaEjecutiva
+                titulo="Leads en CRM"
+                valor={num.format(totalesPropio.recibidos)}
+                icono={MessageSquare}
+                colorIcono="text-[#25D366]"
+                destacada={true}
+                detalle={
+                  <p className="text-xs text-emerald-400 font-medium">
+                    {tasaLlegadaCRM} llegaron a WhatsApp
+                  </p>
+                }
+              />
+
+              {/* 6. Ventas Cerradas */}
               <TarjetaEjecutiva
                 titulo="Ventas Cerradas"
                 valor={num.format(totalesPropio.ventas)}
@@ -500,7 +516,7 @@ export function PanelView({
                           <span className="font-mono text-xs text-neutral-400 block break-all">{campana.nombre}</span>
                           <h4 className="font-display text-base font-bold text-white">
                             {campana.nombre.includes("WHATSAPP")
-                              ? "Tráfico Directo a WhatsApp (C_03)"
+                              ? "Tráfico Directo a WhatsApp (C_N1)"
                               : "Conversión en Landing Page (C_04)"}
                           </h4>
                         </div>
@@ -637,7 +653,7 @@ export function PanelView({
               Embudo de Conversión de Ventas
             </h2>
 
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
               <div className="rounded-2xl border border-white/10 bg-neutral-900 p-4 space-y-2">
                 <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-400 block">
                   1. Inversión Meta
@@ -664,9 +680,17 @@ export function PanelView({
                 </p>
               </div>
 
+              <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/[0.05] p-4 space-y-2">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-400 block">
+                  4. Leads en CRM
+                </span>
+                <p className="text-xl font-bold text-emerald-400">{num.format(totalesPropio.recibidos)}</p>
+                <p className="text-[11px] text-emerald-300/80">{tasaLlegadaCRM} confirmados</p>
+              </div>
+
               <div className="rounded-2xl border border-purple-500/30 bg-purple-500/[0.05] p-4 space-y-2">
                 <span className="text-[10px] font-bold uppercase tracking-wider text-purple-400 block">
-                  4. Ventas Cerradas
+                  5. Ventas Cerradas
                 </span>
                 <p className="text-xl font-bold text-purple-300">{num.format(totalesPropio.ventas)}</p>
                 <p className="text-[11px] text-purple-300/80">Cierres confirmados</p>
@@ -817,6 +841,25 @@ export function PanelView({
         </summary>
 
         <div className="mt-4 space-y-6 rounded-2xl border border-white/10 bg-neutral-950 p-6">
+          {/* Botón para reiniciar métricas de prueba */}
+          <div className="rounded-xl border border-red-500/20 bg-red-500/[0.03] p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div>
+              <p className="text-xs font-semibold text-red-200">Limpieza de datos de prueba</p>
+              <p className="text-[11px] text-neutral-400 mt-0.5">
+                Vacía los registros de prueba previos y reinicia la numeración de prospectos WhatsApp a L-1.
+              </p>
+            </div>
+            <form action={limpiarMetricasPrueba}>
+              <button
+                type="submit"
+                className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl border border-red-500/30 bg-red-500/10 px-3.5 py-2 text-xs font-semibold text-red-300 transition-colors hover:bg-red-500/20 active:scale-95"
+              >
+                <Trash2 className="size-3.5" />
+                <span>Vaciar datos de prueba</span>
+              </button>
+            </form>
+          </div>
+
           {/* Gráfico diario */}
           {datosPropio && datosPropio.dias.length > 0 && (
             <div className="space-y-4">

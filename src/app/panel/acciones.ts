@@ -2,6 +2,7 @@
 
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import { sql } from "@/server/db";
 import { COOKIE_PANEL, DURACION_SESION, contrasenaCorrecta, firma } from "@/server/sesion-panel";
 
 export async function ingresar(formulario: FormData) {
@@ -23,5 +24,16 @@ export async function ingresar(formulario: FormData) {
 
 export async function salir() {
   (await cookies()).delete({ name: COOKIE_PANEL, path: "/panel" });
+  redirect("/panel");
+}
+
+export async function limpiarMetricasPrueba() {
+  if (!sql) return;
+  try {
+    await sql`TRUNCATE TABLE eventos RESTART IDENTITY`;
+    await sql`ALTER SEQUENCE IF EXISTS eventos_referencia_seq RESTART WITH 1`;
+  } catch (e) {
+    console.error("[panel] Error al limpiar métricas", e);
+  }
   redirect("/panel");
 }
