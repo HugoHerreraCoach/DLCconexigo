@@ -1,5 +1,4 @@
 import Image from "next/image";
-import Link from "next/link";
 import {
   AlertTriangle,
   ArrowDownRight,
@@ -22,6 +21,13 @@ import { esRastro, RASTROS } from "@/config/rastros";
 import { RANGOS, type Metricas, type ResultadoMetricas, type Totales } from "@/server/metricas";
 import type { FilaAnuncioMeta, FilaCampanaMeta, Plataforma, ResultadoCampanasMeta } from "@/server/plataformas";
 import { GraficoColumnas, type Serie } from "@/views/panel/GraficoColumnas";
+import {
+  BotonPlataforma,
+  EnlacePeriodo,
+  InputPlataforma,
+  PlataformaProvider,
+  VistaPlataforma,
+} from "@/views/panel/ConmutadorPlataforma";
 
 const FUENTES: Record<string, string> = {
   meta: "Meta (Facebook / Instagram)",
@@ -163,27 +169,6 @@ export function PanelView({
   const esPersonalizado = Boolean(desde && hasta);
   const rangoTexto = esPersonalizado ? `${desde} → ${hasta}` : dias ? (RANGOS.find((r) => r.dias === dias)?.etiqueta ?? `${dias} días`) : "Período actual";
 
-  // Enlace para alternar entre plataformas conservando las fechas
-  function urlPlataforma(nuevaPlat: "meta" | "tiktok") {
-    const params = new URLSearchParams();
-    params.set("p", nuevaPlat);
-    if (desde && hasta) {
-      params.set("desde", desde);
-      params.set("hasta", hasta);
-    } else if (dias) {
-      params.set("r", String(dias));
-    }
-    return `/panel?${params.toString()}`;
-  }
-
-  // Enlace para botones de períodos predefinidos conservando la plataforma
-  function urlPreset(diasPreset: number) {
-    const params = new URLSearchParams();
-    params.set("p", plataforma);
-    params.set("r", String(diasPreset));
-    return `/panel?${params.toString()}`;
-  }
-
   return (
     <main className="mx-auto min-h-screen max-w-7xl px-4 py-8 sm:px-6 space-y-8">
       {/* ── HEADER EJECUTIVO ──────────────────────────────────────────────── */}
@@ -219,34 +204,32 @@ export function PanelView({
       </header>
 
       {/* ── SELECTOR DE PLATAFORMA (META ADS VS TIKTOK ADS) ─────────────────── */}
+      {/* El cambio de pestaña es instantáneo: ver ConmutadorPlataforma.tsx */}
+      <PlataformaProvider inicial={plataforma}>
       <section aria-label="Plataformas de anuncios" className="space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div className="inline-flex rounded-2xl border border-white/15 bg-neutral-900/90 p-1.5 shadow-md">
-            <Link
-              href={urlPlataforma("meta")}
-              className={`inline-flex items-center gap-2 rounded-xl px-4 py-2 text-xs sm:text-sm font-bold transition-all ${
-                plataforma === "meta"
-                  ? "bg-blue-600 text-white shadow-md shadow-blue-600/30"
-                  : "text-neutral-400 hover:text-white hover:bg-white/5"
-              }`}
+            <BotonPlataforma
+              valor="meta"
+              className="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-xs sm:text-sm font-bold transition-all"
+              claseActiva="bg-blue-600 text-white shadow-md shadow-blue-600/30"
+              claseInactiva="text-neutral-400 hover:text-white hover:bg-white/5"
             >
               <span className="size-2 rounded-full bg-blue-300 animate-pulse" />
               <span>Meta Ads (Facebook / Instagram)</span>
               <span className="rounded-md bg-blue-500/30 px-1.5 py-0.5 text-[10px] text-blue-200">2 activas</span>
-            </Link>
+            </BotonPlataforma>
 
-            <Link
-              href={urlPlataforma("tiktok")}
-              className={`inline-flex items-center gap-2 rounded-xl px-4 py-2 text-xs sm:text-sm font-bold transition-all ${
-                plataforma === "tiktok"
-                  ? "bg-[#FE2C55] text-white shadow-md shadow-[#FE2C55]/30"
-                  : "text-neutral-400 hover:text-white hover:bg-white/5"
-              }`}
+            <BotonPlataforma
+              valor="tiktok"
+              className="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-xs sm:text-sm font-bold transition-all"
+              claseActiva="bg-[#FE2C55] text-white shadow-md shadow-[#FE2C55]/30"
+              claseInactiva="text-neutral-400 hover:text-white hover:bg-white/5"
             >
               <span className="size-2 rounded-full bg-neutral-400" />
               <span>TikTok Ads</span>
               <span className="rounded-md bg-white/10 px-1.5 py-0.5 text-[10px] text-neutral-300">0 campañas</span>
-            </Link>
+            </BotonPlataforma>
           </div>
 
           {/* Rango de fechas activo */}
@@ -266,9 +249,9 @@ export function PanelView({
             {RANGOS.map((r) => {
               const activo = !esPersonalizado && dias === r.dias;
               return (
-                <Link
+                <EnlacePeriodo
                   key={r.dias}
-                  href={urlPreset(r.dias)}
+                  href={`/panel?r=${r.dias}`}
                   className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
                     activo
                       ? "bg-dlc text-neutral-950 shadow-sm"
@@ -276,14 +259,14 @@ export function PanelView({
                   }`}
                 >
                   {r.etiqueta}
-                </Link>
+                </EnlacePeriodo>
               );
             })}
           </div>
 
           {/* Selector de cualquier fecha libre (desde / hasta) */}
           <form method="GET" action="/panel" className="flex flex-wrap items-center gap-2">
-            <input type="hidden" name="p" value={plataforma} />
+            <InputPlataforma />
             <div className="flex items-center gap-1.5 text-xs text-neutral-300">
               <span className="text-neutral-400 font-medium">Desde:</span>
               <input
@@ -318,7 +301,7 @@ export function PanelView({
       </section>
 
       {/* ── CONTENIDO ESPECÍFICO SEGÚN PLATAFORMA SELECCIONADA ──────────────── */}
-      {plataforma === "meta" ? (
+      <VistaPlataforma cual="meta">
         <>
           {/* ── BARRA DE MONITOREO EXCLUSIVO DE LAS 2 CAMPAÑAS ───────────────── */}
           <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-emerald-500/20 bg-emerald-500/[0.04] px-4 py-3 text-xs">
@@ -741,8 +724,9 @@ export function PanelView({
             )}
           </section>
         </>
-      ) : (
-        /* ── VISTA EXCLUSIVA DE TIKTOK ADS ────────────────────────────────── */
+      </VistaPlataforma>
+      <VistaPlataforma cual="tiktok">
+        {/* ── VISTA EXCLUSIVA DE TIKTOK ADS ────────────────────────────────── */}
         <section aria-labelledby="vista-tiktok" className="space-y-6">
           <div className="rounded-3xl border border-[#FE2C55]/30 bg-gradient-to-r from-neutral-900 via-neutral-900 to-[#FE2C55]/10 p-6 sm:p-8 space-y-4">
             <div className="flex items-center gap-3">
@@ -817,7 +801,8 @@ export function PanelView({
             </div>
           ))}
         </section>
-      )}
+      </VistaPlataforma>
+      </PlataformaProvider>
 
       {/* ── SECCIÓN PLEGABLE DE AUDITORÍA TÉCNICA ────────────────────────────── */}
       <details className="group border-t border-white/10 pt-6">
