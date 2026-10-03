@@ -78,7 +78,7 @@ export function FormularioContacto() {
       paso: "Reclamar regalo en WhatsApp",
     };
 
-    abrirWhatsApp(enlaceWhatsApp(mensaje), () => rastrearLead("formulario-hero", datos));
+    abrirWhatsApp(enlaceWhatsApp(mensaje), (texto) => rastrearLead("formulario-hero", datos, texto));
     setEstado("enviando");
     setTimeout(() => setEstado("enviado"), 700);
     setTimeout(() => setEstado("reposo"), 4000);

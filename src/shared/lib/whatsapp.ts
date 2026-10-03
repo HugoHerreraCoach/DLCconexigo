@@ -42,10 +42,15 @@ export function mensajeConNombre(base: string, nombre?: string): string {
 }
 
 /** Abre WhatsApp con el mensaje tal cual. `medir` registra el «Cliente
- *  potencial» (píxeles + registro propio) antes de salir de la página.
+ *  potencial» (píxeles + registro propio) antes de salir de la página y recibe
+ *  el texto exacto del mensaje (para reconocerlo cuando llegue al CRM).
  *  En escritorio abre otra pestaña; en celular navega directo (abre la app). */
-export function abrirWhatsApp(enlace: string, medir?: () => void) {
-  medir?.();
+export function abrirWhatsApp(enlace: string, medir?: (texto: string) => void) {
+  let texto = "";
+  try {
+    texto = new URL(enlace).searchParams.get("text") ?? "";
+  } catch {}
+  medir?.(texto);
   const escritorio = !/Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
   const ventana = escritorio ? window.open(enlace, "_blank") : null;
   if (ventana) ventana.opener = null;

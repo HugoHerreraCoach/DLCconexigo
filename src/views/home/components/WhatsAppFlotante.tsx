@@ -168,7 +168,7 @@ export function WhatsAppFlotante() {
                 onSubmit={(e) => {
                   // Enter en el cuadro de texto: mismo «Cliente potencial» que el botón de enviar.
                   e.preventDefault();
-                  abrirWhatsApp(enlaceMensajePersonalizado, () => rastrearContacto("chat-flotante-mensaje"));
+                  abrirWhatsApp(enlaceMensajePersonalizado, (texto) => rastrearContacto("chat-flotante-mensaje", texto));
                 }}
                 className="flex items-center gap-2"
               >

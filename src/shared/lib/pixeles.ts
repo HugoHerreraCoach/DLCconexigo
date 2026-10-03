@@ -1,4 +1,5 @@
 import { RASTROS, type IdRastro } from "@/config/rastros";
+import { nombreDe, plantillaDe } from "@/shared/lib/plantillas";
 import { registrar } from "@/shared/lib/registro";
 
 /* Eventos de conversión para Meta, TikTok y el registro propio del panel. Los
@@ -34,14 +35,18 @@ function clientePotencial(id: IdRastro, datos?: Record<string, string>) {
   window.ttq?.track("SubmitForm", { ...CONTENIDO, description: rastro });
 }
 
-/** Se envió un formulario. */
-export function rastrearLead(id: IdRastro, datos: { motivo: string; inicial: string; ubicacion: string; paso: string }) {
+/** Plantilla y nombre del mensaje que se abre en WhatsApp (para reconocerlo
+ *  cuando llegue al CRM). */
+const delMensaje = (texto?: string) => (texto ? { plantilla: plantillaDe(texto), nombre: nombreDe(texto) } : {});
+
+/** Se envió un formulario. `texto`: el mensaje exacto que se abre en WhatsApp. */
+export function rastrearLead(id: IdRastro, datos: { motivo: string; inicial: string; ubicacion: string; paso: string }, texto?: string) {
   clientePotencial(id, datos);
-  registrar("lead", { origen: id, datos });
+  registrar("lead", { origen: id, datos, ...delMensaje(texto) });
 }
 
 /** Clic en un botón/enlace de WhatsApp o mensaje desde el chat flotante. */
-export function rastrearContacto(id: IdRastro) {
+export function rastrearContacto(id: IdRastro, texto?: string) {
   clientePotencial(id);
-  registrar("contacto", { origen: id });
+  registrar("contacto", { origen: id, ...delMensaje(texto) });
 }

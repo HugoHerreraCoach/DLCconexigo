@@ -50,7 +50,7 @@ export function Pixeles() {
           url.searchParams.set("text", mensajeConNombre(texto));
           hrefFinal = url.toString();
         } catch {}
-        abrirWhatsApp(hrefFinal, () => rastrearContacto(esRastro(id) ? id : "sin-identificar"));
+        abrirWhatsApp(hrefFinal, (texto) => rastrearContacto(esRastro(id) ? id : "sin-identificar", texto));
       }
     };
     document.addEventListener("click", alClic, { capture: true });

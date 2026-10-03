@@ -1,5 +1,7 @@
 import { esRastro } from "@/config/rastros";
 import { asegurarEsquema, sql } from "@/server/db";
+import { huellaNombre } from "@/server/nombre-huella";
+import { esPlantilla } from "@/shared/lib/plantillas";
 
 /* Recibe los eventos de src/shared/lib/registro.ts. Todo se valida contra
    listas cerradas y se recorta: el endpoint es público. Desde el 2026-10-01
@@ -39,12 +41,17 @@ export async function POST(req: Request) {
     datos = Object.fromEntries(CLAVES_DATOS.map((k) => [k, texto(d[k]) ?? ""]));
   }
 
+  // Para reconocer el mensaje cuando llegue al CRM: plantilla del texto y
+  // huella del nombre (nunca el nombre). Ver src/shared/lib/plantillas.ts.
+  const plantilla = tipo !== "visita" && esPlantilla(cuerpo.plantilla) ? cuerpo.plantilla : null;
+  const nombreHuella = tipo !== "visita" ? huellaNombre(cuerpo.nombre) : null;
+
   try {
     await asegurarEsquema(sql);
     await sql`
-      INSERT INTO eventos (tipo, visitante, fuente, campana, origen, movil, datos)
+      INSERT INTO eventos (tipo, visitante, fuente, campana, origen, movil, datos, plantilla, nombre_huella)
       VALUES (${tipo}, ${visitante}, ${fuente}, ${texto(cuerpo.campana)}, ${origen},
-              ${cuerpo.movil === true}, ${datos ? sql.json(datos) : null})`;
+              ${cuerpo.movil === true}, ${datos ? sql.json(datos) : null}, ${plantilla}, ${nombreHuella})`;
   } catch (e) {
     console.error("[eventos] no se pudo guardar", e);
     return new Response(null, { status: 500 });

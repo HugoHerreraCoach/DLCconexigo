@@ -64,6 +64,12 @@ export function asegurarEsquema(db: postgres.Sql) {
     .then(() => db`ALTER TABLE eventos ADD COLUMN IF NOT EXISTS codigo text, ADD COLUMN IF NOT EXISTS recibido_en timestamptz, ADD COLUMN IF NOT EXISTS venta_en timestamptz`)
     .then(() => db`DROP INDEX IF EXISTS eventos_codigo_uidx`)
     .then(() => db`CREATE INDEX IF NOT EXISTS eventos_codigo_idx ON eventos (codigo) WHERE codigo IS NOT NULL`)
+    // Mensajes recibidos SIN código (2026-10-03): plantilla del texto, huella del
+    // nombre y el id del mensaje de WhatsApp que lo confirmó (ver
+    // /api/whatsapp/mensaje). El índice busca clics aún sin mensaje.
+    .then(() => db`ALTER TABLE eventos ADD COLUMN IF NOT EXISTS plantilla text, ADD COLUMN IF NOT EXISTS nombre_huella text, ADD COLUMN IF NOT EXISTS mensaje_id text`)
+    .then(() => db`CREATE UNIQUE INDEX IF NOT EXISTS eventos_mensaje_id_uidx ON eventos (mensaje_id) WHERE mensaje_id IS NOT NULL`)
+    .then(() => db`CREATE INDEX IF NOT EXISTS eventos_pendientes_idx ON eventos (plantilla, creado) WHERE recibido_en IS NULL AND plantilla IS NOT NULL`)
     .catch((e) => {
       esquemaListo = null; // reintentar en la próxima petición
       throw e;

@@ -57,7 +57,10 @@ function atribucion(): Atribucion {
   return nueva;
 }
 
-type Extra = { origen?: string; datos?: Record<string, string> };
+/** `plantilla` y `nombre`: para reconocer el mensaje de WhatsApp cuando llegue
+ *  al CRM (ver src/shared/lib/plantillas.ts). El servidor guarda solo una
+ *  huella del nombre, nunca el nombre. */
+type Extra = { origen?: string; datos?: Record<string, string>; plantilla?: string | null; nombre?: string | null };
 
 function cuerpoDe(tipo: TipoEvento, extra: Extra) {
   return JSON.stringify({
