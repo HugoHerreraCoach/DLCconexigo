@@ -63,12 +63,14 @@ export type FilaCampanaMeta = {
   presupuestoDiario: number | null;
   /** Presupuesto total asignado en Meta Ads si fuera lifetime. */
   presupuestoTotal: number | null;
-  /** Formularios instantáneos de Meta (y leads del píxel, si los hubiera). */
+  /** Formularios instantáneos de Meta (sin el Lead del píxel). */
   formularios: number;
   /** Conversaciones iniciadas por WhatsApp / Messenger. */
   conversaciones: number;
   /** Total de leads sumando formularios y conversaciones. */
   leadsTotales: number;
+  /** Lead del píxel: clics a WhatsApp desde la landing (no son mensajes). */
+  clicsWhatsApp: number;
   /** Costo por lead (gasto / leadsTotales) o null si no hay leads. */
   costoPorLead: number | null;
   /** Llegadas a la landing (landing_page_view). */
@@ -85,6 +87,7 @@ export type FilaAnuncioMeta = {
   formularios: number;
   conversaciones: number;
   leadsTotales: number;
+  clicsWhatsApp: number;
   costoPorLead: number | null;
   visitasWeb: number;
   clics: number;
@@ -97,6 +100,7 @@ export type TotalesMeta = {
   formularios: number;
   conversaciones: number;
   leadsTotales: number;
+  clicsWhatsApp: number;
   costoPorLead: number | null;
   visitasWeb: number;
   clics: number;
@@ -152,20 +156,23 @@ type RespuestaCampanas = {
 };
 type RespuestaCuenta = { currency?: string; error?: { message?: string } };
 
+/* Ojo: "lead" y "offsite_conversion.fb_pixel_lead" son el evento Lead del píxel,
+   que la landing dispara al hacer CLIC a WhatsApp (no es un mensaje recibido).
+   Por eso aquí solo cuentan los formularios instantáneos de Meta, y los clics van
+   aparte en extraerClicsWhatsApp. Ver docs/0014. */
 function extraerLeadsFormularios(actions?: { action_type: string; value: string }[]): number {
   if (!actions) return 0;
-  const tipos = [
-    "lead",
-    "offsite_conversion.fb_pixel_lead",
-    "onsite_conversion.lead_grouped",
-    "contact",
-    "submit_application",
-  ];
+  const tipos = ["onsite_conversion.lead_grouped", "leadgen_grouped"];
   for (const t of tipos) {
     const a = actions.find((x) => x.action_type === t);
     if (a && Number(a.value) > 0) return Number(a.value);
   }
   return 0;
+}
+
+/** Evento Lead del píxel = clics a WhatsApp desde la landing (no mensajes reales). */
+function extraerClicsWhatsApp(actions?: { action_type: string; value: string }[]): number {
+  return Number(actions?.find((x) => x.action_type === "offsite_conversion.fb_pixel_lead")?.value ?? 0);
 }
 
 function extraerConversaciones(actions?: { action_type: string; value: string }[]): number {
@@ -280,6 +287,7 @@ export async function campanasMeta(rangoParam: ParametroRango): Promise<Resultad
         formularios,
         conversaciones,
         leadsTotales,
+        clicsWhatsApp: extraerClicsWhatsApp(ins?.actions),
         costoPorLead,
         visitasWeb: accion("landing_page_view"),
         clics: accion("link_click"),
@@ -307,6 +315,7 @@ export async function campanasMeta(rangoParam: ParametroRango): Promise<Resultad
           formularios,
           conversaciones,
           leadsTotales,
+          clicsWhatsApp: extraerClicsWhatsApp(ad.actions),
           costoPorLead,
           visitasWeb: accion("landing_page_view"),
           clics: accion("link_click"),
@@ -345,6 +354,7 @@ export async function campanasMeta(rangoParam: ParametroRango): Promise<Resultad
       formularios: formulariosTotal,
       conversaciones: conversacionesTotal,
       leadsTotales,
+      clicsWhatsApp: filas.reduce((acc, f) => acc + f.clicsWhatsApp, 0),
       costoPorLead: leadsTotales > 0 ? gastoTotal / leadsTotales : null,
       visitasWeb: filas.reduce((acc, f) => acc + f.visitasWeb, 0),
       clics: filas.reduce((acc, f) => acc + f.clics, 0),

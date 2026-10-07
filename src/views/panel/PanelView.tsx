@@ -148,6 +148,7 @@ export function PanelView({
   const metaOk = meta.estado === "ok";
   const moneda = metaOk ? meta.moneda : "PEN";
   const gastoMeta = metaOk ? meta.totales.gasto : 0;
+  // Leads de Meta que son conversaciones o formularios (no incluye el Lead del píxel = clics).
   const leadsMeta = metaOk ? meta.totales.leadsTotales : 0;
 
   // Extracción de datos del registro propio
@@ -163,8 +164,18 @@ export function PanelView({
   };
   const anterioresPropio: Totales = datosPropio?.anteriores ?? totalesPropio;
 
-  const totalLeadsGerencial = Math.max(leadsMeta, totalesPropio.leads + totalesPropio.contactos);
+  /* Leads REALES (docs/0014): mensajes de WhatsApp que llegaron desde la landing
+     (confirmados por el CRM) + chats de anuncios de clic a WhatsApp + formularios
+     instantáneos. El clic a WhatsApp (Lead del píxel) va aparte: no es un lead. */
+  const mensajesWebPorCampana = new Map<string, number>();
+  for (const c of datosPropio?.campanas ?? []) {
+    if (c.fuente === "meta") mensajesWebPorCampana.set(c.campana, (mensajesWebPorCampana.get(c.campana) ?? 0) + c.recibidos);
+  }
+  const mensajesWeb = (campanaId: string) => mensajesWebPorCampana.get(campanaId) ?? 0;
+  const mensajesWebMeta = metaOk ? meta.filas.reduce((acc, f) => acc + mensajesWeb(f.id), 0) : 0;
+  const totalLeadsGerencial = leadsMeta + mensajesWebMeta;
   const cplGerencial = gastoMeta > 0 && totalLeadsGerencial > 0 ? gastoMeta / totalLeadsGerencial : null;
+  const clicsWhatsAppWeb = totalesPropio.leads + totalesPropio.contactos;
   const tasaLlegadaCRM = pct(totalesPropio.recibidos, totalesPropio.contactos + totalesPropio.leads);
 
   // Formato del texto de rango para la UI
@@ -348,16 +359,15 @@ export function PanelView({
 
               {/* 2. Total Leads */}
               <TarjetaEjecutiva
-                titulo="Total Leads"
+                titulo="Leads reales"
                 valor={num.format(totalLeadsGerencial)}
                 icono={Target}
                 colorIcono="text-blue-400"
                 destacada={true}
                 detalle={
                   <p className="text-xs text-neutral-300">
-                    {leadsMeta > 0
-                      ? `${metaOk ? meta.totales.formularios : 0} formularios · ${metaOk ? meta.totales.conversaciones : 0} chats`
-                      : `${totalesPropio.leads} formularios · ${totalesPropio.contactos} chats`}
+                    {`${mensajesWebMeta} msj. web · ${metaOk ? meta.totales.conversaciones : 0} chats anuncio`}
+                    {metaOk && meta.totales.formularios > 0 && ` · ${meta.totales.formularios} formularios`}
                   </p>
                 }
               />
@@ -371,15 +381,15 @@ export function PanelView({
                 destacada={true}
                 detalle={
                   <p className="text-xs text-neutral-400">
-                    {cplGerencial !== null ? "Inversión / Total Leads" : "Aún sin gasto o leads"}
+                    {cplGerencial !== null ? "Inversión / Leads reales · msj. web desde 03/10" : "Aún sin gasto o leads"}
                   </p>
                 }
               />
 
               {/* 4. Leads Registrados por API */}
               <TarjetaEjecutiva
-                titulo="Leads por API (Web)"
-                valor={num.format(totalesPropio.leads + totalesPropio.contactos)}
+                titulo="Clics a WhatsApp (Web)"
+                valor={num.format(clicsWhatsAppWeb)}
                 icono={Users}
                 colorIcono="text-amber-400"
                 detalle={
@@ -390,14 +400,16 @@ export function PanelView({
                       dias={dias}
                     />
                   ) : (
-                    <p className="text-xs text-neutral-400">{totalesPropio.leads} formularios · {totalesPropio.contactos} clics</p>
+                    <p className="text-xs text-neutral-400">
+                      {metaOk ? `Meta los cuenta como «Lead»: ${num.format(meta.totales.clicsWhatsApp)}` : `${totalesPropio.leads} formularios · ${totalesPropio.contactos} clics`}
+                    </p>
                   )
                 }
               />
 
               {/* 5. Leads Finales en CRM */}
               <TarjetaEjecutiva
-                titulo="Leads en CRM"
+                titulo="Mensajes desde la web"
                 valor={num.format(totalesPropio.recibidos)}
                 icono={MessageSquare}
                 colorIcono="text-[#25D366]"
@@ -447,7 +459,7 @@ export function PanelView({
                   <div className="grid grid-cols-3 gap-3 shrink-0 sm:gap-4">
                     <div className="rounded-2xl border border-white/10 bg-black/40 p-4 text-center">
                       <span className="block text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
-                        Leads Generados
+                        Chats / formularios
                       </span>
                       <span className="mt-1 block font-display text-2xl font-extrabold text-white">
                         {num.format(meta.anuncioGanador.leadsTotales)}
@@ -505,7 +517,8 @@ export function PanelView({
               <div className="grid gap-4 md:grid-cols-2">
                 {meta.filas.map((campana) => {
                   const est = estadoLegible(campana.estado);
-                  const cpl = campana.costoPorLead !== null ? formatoSoles(campana.costoPorLead, moneda) : "—";
+                  const leadsReales = campana.leadsTotales + mensajesWeb(campana.id);
+                  const cpl = leadsReales > 0 ? formatoSoles(campana.gasto / leadsReales, moneda) : "—";
                   return (
                     <div
                       key={campana.id}
@@ -541,9 +554,9 @@ export function PanelView({
                           </span>
                         </div>
                         <div>
-                          <span className="block text-[10px] uppercase font-semibold text-neutral-400">Leads Totales</span>
+                          <span className="block text-[10px] uppercase font-semibold text-neutral-400">Leads reales</span>
                           <span className="mt-0.5 block text-xs sm:text-sm font-bold text-white">
-                            {num.format(campana.leadsTotales)}
+                            {num.format(leadsReales)}
                           </span>
                         </div>
                         <div>
@@ -554,8 +567,10 @@ export function PanelView({
 
                       <div className="flex items-center justify-between text-xs text-neutral-400">
                         <span>
+                          {mensajesWeb(campana.id) > 0 && `${mensajesWeb(campana.id)} msj. web · `}
                           {campana.formularios > 0 && `${campana.formularios} formularios · `}
                           {campana.conversaciones > 0 && `${campana.conversaciones} chats · `}
+                          {campana.clicsWhatsApp > 0 && `${num.format(campana.clicsWhatsApp)} clics a WhatsApp · `}
                           {num.format(campana.clics)} clics
                         </span>
                         <span>{num.format(campana.visitasWeb)} visitas web</span>
@@ -599,9 +614,9 @@ export function PanelView({
                       <th className="py-3 px-4">Anuncio / Creativo</th>
                       <th className="py-3 px-4">Campaña</th>
                       <th className="py-3 px-4 text-right">Inversión</th>
-                      <th className="py-3 px-4 text-right">Leads</th>
+                      <th className="py-3 px-4 text-right" title="Chats de WhatsApp y formularios de Meta. Los mensajes desde la landing se ven por campaña.">Chats / form.</th>
                       <th className="py-3 px-4 text-right">Coste / Lead</th>
-                      <th className="py-3 px-4 text-right">Clics</th>
+                      <th className="py-3 px-4 text-right">Clics (a WhatsApp)</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-white/5">
@@ -633,6 +648,7 @@ export function PanelView({
                           </td>
                           <td className="py-3.5 px-4 text-right text-xs text-neutral-400">
                             {num.format(ad.clics)}
+                            {ad.clicsWhatsApp > 0 && ` (${num.format(ad.clicsWhatsApp)})`}
                           </td>
                         </tr>
                       );
