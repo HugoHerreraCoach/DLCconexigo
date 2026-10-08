@@ -4,10 +4,8 @@ import Image from "next/image";
 import { motion } from "framer-motion";
 import { ArrowUpRight, Check, MapPin, TrendingUp } from "lucide-react";
 import { ESPACIOS } from "@/config/contenido";
-import { marcaRastro } from "@/config/rastros";
 import { OFERTA, SITIO } from "@/config/sitio";
 import { alEntrar, EASE, escalonar, subir } from "@/shared/lib/motion";
-import { enlaceWhatsApp, MENSAJES } from "@/shared/lib/whatsapp";
 import { Encabezado } from "@/shared/ui/Encabezado";
 import { IconoWhatsApp } from "@/shared/ui/IconoWhatsApp";
 import { PlanoMaestro } from "./PlanoMaestro";
@@ -94,20 +92,14 @@ export function Proyecto() {
 
             <div className="mt-auto flex flex-col gap-3 pt-10 sm:flex-row">
               <a
-                href={enlaceWhatsApp(MENSAJES.visita)}
-                {...marcaRastro("proyecto-agendar-visita")}
-                target="_blank"
-                rel="noopener noreferrer"
+                href="#formulario"
                 className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-dlc px-6 font-semibold whitespace-nowrap text-neutral-950 transition-colors hover:bg-dlc-claro"
               >
                 <IconoWhatsApp className="size-5" />
                 Agenda tu visita
               </a>
               <a
-                href={enlaceWhatsApp(MENSAJES.ficha)}
-                {...marcaRastro("proyecto-pedir-ficha")}
-                target="_blank"
-                rel="noopener noreferrer"
+                href="#formulario"
                 className="inline-flex h-12 items-center justify-center gap-2 rounded-xl border border-white/15 px-6 font-medium whitespace-nowrap transition-colors hover:border-dlc hover:text-dlc"
               >
                 Pide la ficha

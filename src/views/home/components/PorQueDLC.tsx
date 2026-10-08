@@ -3,10 +3,8 @@
 import { useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { ArrowUpRight, Check, Landmark, MapPin, Wallet } from "lucide-react";
-import { idRastro, marcaRastro } from "@/config/rastros";
 import { OFERTA, SITIO } from "@/config/sitio";
 import { alEntrar, EASE, escalonar, subir } from "@/shared/lib/motion";
-import { enlaceWhatsApp, MENSAJES } from "@/shared/lib/whatsapp";
 import { Encabezado } from "@/shared/ui/Encabezado";
 import { Contador } from "./Contador";
 
@@ -27,7 +25,7 @@ const PILARES = [
     titulo: "Financiamiento directo",
     texto: `No necesitas tenerlo todo hoy para ser dueño. Separas tu lote con ${OFERTA.separaDesde}, das una inicial desde ${OFERTA.inicialDesde} y pagas el saldo en cuotas, sin bancos y sin intereses.`,
     puntos: [`Separa desde ${OFERTA.separaDesde}`, `Inicial desde ${OFERTA.inicialDesde}`, `Hasta ${OFERTA.meses} meses con ${OFERTA.interes} de interés`],
-    enlace: { texto: "Consultar mi plan de cuotas", href: enlaceWhatsApp(MENSAJES.cuotas), rastro: idRastro("financiamiento-plan-cuotas") },
+    enlace: { texto: "Consultar mi plan de cuotas", href: "#formulario" },
   },
   {
     id: "legal",
@@ -40,7 +38,7 @@ const PILARES = [
       "Minuta y escritura pública elevada a SUNARP",
       "Transferencia mediante acciones y derechos",
     ],
-    enlace: { texto: "Consultar la documentación", href: enlaceWhatsApp(MENSAJES.documentos), rastro: idRastro("legal-documentacion") },
+    enlace: { texto: "Consultar la documentación", href: "#formulario" },
   },
 ];
 
@@ -135,9 +133,6 @@ export function PorQueDLC() {
                 </ul>
                 <a
                   href={pilar.enlace.href}
-                  {...(pilar.enlace.rastro && marcaRastro(pilar.enlace.rastro))}
-                  target="_blank"
-                  rel="noopener noreferrer"
                   className="group mt-8 inline-flex min-h-11 items-center gap-2 font-medium text-dlc underline-offset-4 hover:underline"
                 >
                   {pilar.enlace.texto}

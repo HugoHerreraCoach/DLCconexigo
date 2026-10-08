@@ -2,18 +2,16 @@
 
 import { motion } from "framer-motion";
 import { ArrowUp, MapPin, Video } from "lucide-react";
-import { idRastro, marcaRastro } from "@/config/rastros";
 import { SITIO } from "@/config/sitio";
 import { alEntrar, escalonar, subir } from "@/shared/lib/motion";
-import { enlaceWhatsApp, MENSAJES } from "@/shared/lib/whatsapp";
 import { Encabezado } from "@/shared/ui/Encabezado";
 import { IconoWhatsApp } from "@/shared/ui/IconoWhatsApp";
 
 /* El formulario vive en el hero (#formulario). Esta sección cierra la página
    con las otras vías de contacto y un atajo de vuelta al formulario. */
 const VIAS = [
-  { icono: IconoWhatsApp, titulo: "Escríbenos por WhatsApp", texto: "Respuesta rápida", href: enlaceWhatsApp(MENSAJES.general), rastro: idRastro("contacto-whatsapp") },
-  { icono: Video, titulo: "¿Estás lejos?", texto: "Pide el video recorrido", href: enlaceWhatsApp(MENSAJES.video), rastro: idRastro("contacto-video-recorrido") },
+  { icono: IconoWhatsApp, titulo: "Escríbenos por WhatsApp", texto: "Respuesta rápida", href: "#formulario" },
+  { icono: Video, titulo: "¿Estás lejos?", texto: "Pide el video recorrido", href: "#formulario" },
   { icono: MapPin, titulo: "Ubicación", texto: SITIO.direccion, href: SITIO.mapa },
 ];
 
@@ -37,9 +35,7 @@ export function Contacto() {
             <motion.li key={d.titulo} variants={subir}>
               <a
                 href={d.href}
-                {...(d.rastro && marcaRastro(d.rastro))}
-                target="_blank"
-                rel="noopener noreferrer"
+                {...(d.href.startsWith("#") ? {} : { target: "_blank", rel: "noopener noreferrer" })}
                 className="group flex h-full items-center gap-4 rounded-2xl border border-borde bg-superficie p-5 transition-colors hover:border-dlc/40"
               >
                 <span className="inline-flex size-12 shrink-0 items-center justify-center rounded-xl border border-white/10 text-dlc">

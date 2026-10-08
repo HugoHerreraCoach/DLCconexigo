@@ -1,15 +1,13 @@
 import Image from "next/image";
 import { ArrowUp, MapPin } from "lucide-react";
-import { marcaRastro } from "@/config/rastros";
 import { NAVEGACION, OFERTA, SITIO } from "@/config/sitio";
-import { enlaceWhatsApp, MENSAJES } from "@/shared/lib/whatsapp";
 import { IconoWhatsApp } from "@/shared/ui/IconoWhatsApp";
 
 const PROYECTO = [
-  { texto: "Planes de financiamiento", href: enlaceWhatsApp(MENSAJES.cuotas), rastro: "footer-financiamiento" },
-  { texto: "Pide la ficha del proyecto", href: enlaceWhatsApp(MENSAJES.ficha), rastro: "footer-ficha" },
-  { texto: "Video recorrido", href: enlaceWhatsApp(MENSAJES.video), rastro: "footer-video" },
-  { texto: "Documentación", href: enlaceWhatsApp(MENSAJES.documentos), rastro: "footer-documentacion" },
+  { texto: "Planes de financiamiento", href: "#formulario" },
+  { texto: "Pide la ficha del proyecto", href: "#formulario" },
+  { texto: "Video recorrido", href: "#formulario" },
+  { texto: "Documentación", href: "#formulario" },
 ] as const;
 
 export function Footer() {
@@ -46,9 +44,6 @@ export function Footer() {
               <li key={e.texto}>
                 <a
                   href={e.href}
-                  {...marcaRastro(e.rastro)}
-                  target="_blank"
-                  rel="noopener noreferrer"
                   className="inline-flex min-h-10 items-center text-neutral-300 transition-colors hover:text-white"
                 >
                   {e.texto}
@@ -63,10 +58,7 @@ export function Footer() {
           <ul className="mt-6 space-y-4 text-neutral-300">
             <li>
               <a
-                href={enlaceWhatsApp(MENSAJES.general)}
-                {...marcaRastro("footer-whatsapp")}
-                target="_blank"
-                rel="noopener noreferrer"
+                href="#formulario"
                 className="inline-flex items-center gap-3 hover:text-white"
               >
                 <IconoWhatsApp className="size-5 text-dlc" />

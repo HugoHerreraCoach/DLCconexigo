@@ -2,9 +2,7 @@
 
 import Image from "next/image";
 import { motion } from "framer-motion";
-import { idRastro, marcaRastro } from "@/config/rastros";
 import { alEntrar, EASE, escalonar, subir } from "@/shared/lib/motion";
-import { enlaceWhatsApp, MENSAJES } from "@/shared/lib/whatsapp";
 import { Encabezado } from "@/shared/ui/Encabezado";
 import { IconoWhatsApp } from "@/shared/ui/IconoWhatsApp";
 
@@ -81,10 +79,7 @@ export function Galeria() {
               <p className="text-sm text-tinta-2">Un paseo de 38 segundos por Finca Algarrobo.</p>
             </div>
             <a
-              href={enlaceWhatsApp(MENSAJES.video)}
-              {...marcaRastro(idRastro("galeria-video-whatsapp"))}
-              target="_blank"
-              rel="noopener noreferrer"
+              href="#formulario"
               className="inline-flex items-center gap-2 text-sm font-medium text-dlc transition-colors hover:text-dlc-claro"
             >
               <IconoWhatsApp className="size-4" />

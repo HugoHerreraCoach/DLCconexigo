@@ -2,10 +2,8 @@
 
 import Image from "next/image";
 import { motion } from "framer-motion";
-import { marcaRastro } from "@/config/rastros";
 import { NAVEGACION } from "@/config/sitio";
 import { EASE } from "@/shared/lib/motion";
-import { enlaceWhatsApp, MENSAJES } from "@/shared/lib/whatsapp";
 import { IconoWhatsApp } from "@/shared/ui/IconoWhatsApp";
 
 export function Header() {
@@ -43,10 +41,7 @@ export function Header() {
 
           <div className="flex items-center">
             <a
-              href={enlaceWhatsApp(MENSAJES.general)}
-              {...marcaRastro("header-agendar-visita")}
-              target="_blank"
-              rel="noopener noreferrer"
+              href="#formulario"
               className="inline-flex h-8 items-center gap-1.5 rounded-full bg-[#25D366] px-3.5 text-xs font-semibold text-white shadow-[0_2px_10px_rgba(37,211,102,0.3)] transition-all hover:bg-[#20bd5a] hover:shadow-[0_4px_14px_rgba(37,211,102,0.4)] active:scale-95 sm:h-10 sm:gap-2 sm:px-4 sm:text-sm"
             >
               <IconoWhatsApp className="size-3.5 shrink-0 sm:size-4.5" />
