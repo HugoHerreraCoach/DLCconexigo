@@ -71,9 +71,10 @@ export function asegurarEsquema(db: postgres.Sql) {
     .then(() => db`CREATE UNIQUE INDEX IF NOT EXISTS eventos_mensaje_id_uidx ON eventos (mensaje_id) WHERE mensaje_id IS NOT NULL`)
     .then(() => db`CREATE INDEX IF NOT EXISTS eventos_pendientes_idx ON eventos (plantilla, creado) WHERE recibido_en IS NULL AND plantilla IS NOT NULL`)
     // Intenciones y huellas telefónicas (2026-10): identificador de intención único y huella HMAC del teléfono
-    .then(() => db`ALTER TABLE eventos ADD COLUMN IF NOT EXISTS intencion_id text, ADD COLUMN IF NOT EXISTS telefono_huella text`)
+    .then(() => db`ALTER TABLE eventos ADD COLUMN IF NOT EXISTS intencion_id text, ADD COLUMN IF NOT EXISTS telefono_huella text, ADD COLUMN IF NOT EXISTS conversion_id text`)
     .then(() => db`CREATE UNIQUE INDEX IF NOT EXISTS eventos_intencion_id_uidx ON eventos (intencion_id) WHERE intencion_id IS NOT NULL`)
     .then(() => db`CREATE INDEX IF NOT EXISTS eventos_telefono_huella_idx ON eventos (telefono_huella) WHERE telefono_huella IS NOT NULL`)
+    .then(() => db`CREATE UNIQUE INDEX IF NOT EXISTS eventos_conversion_id_uidx ON eventos (conversion_id) WHERE conversion_id IS NOT NULL`)
     .catch((e) => {
       esquemaListo = null; // reintentar si falló
       throw e;

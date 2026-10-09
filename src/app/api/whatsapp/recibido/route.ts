@@ -1,5 +1,5 @@
 import { esRastro, RASTROS } from "@/config/rastros";
-import { asegurarEsquema, sql } from "@/server/db";
+import { sql } from "@/server/db";
 import { firmaValida } from "@/server/firma-conexigo";
 import { PATRON_REFERENCIA } from "@/shared/lib/whatsapp";
 
@@ -23,7 +23,13 @@ import { PATRON_REFERENCIA } from "@/shared/lib/whatsapp";
    Es idempotente: si Meta reintenta y el CRM avisa dos veces, se conserva la
    primera hora de llegada. */
 
-type Fila = { tipo: "contacto" | "lead"; origen: string | null; fuente: string; campana: string | null; creado: Date };
+type Fila = {
+  tipo: "contacto" | "lead" | "formulario_preparado";
+  origen: string | null;
+  fuente: string;
+  campana: string | null;
+  creado: Date;
+};
 
 export async function POST(req: Request) {
   const secreto = process.env.CONEXIGO_WEBHOOK_SECRET;
@@ -51,26 +57,48 @@ export async function POST(req: Request) {
   const esVenta = cuerpo.venta === true;
 
   try {
-    await asegurarEsquema(sql);
+    // 1. Coincidencia EXACTA por código (F3.1). Sin alternativas permisivas ni 'L-1' / 'L-%'.
+    const candidatos = await sql<(Fila & { id: number; recibido_en: Date | null })[]>`
+      SELECT id, tipo, origen, fuente, campana, creado, recibido_en
+      FROM eventos 
+      WHERE codigo = ${codigo}
+        AND tipo IN ('lead', 'contacto', 'formulario_preparado')
+      ORDER BY creado DESC`;
+
+    // F3.2: Código inexistente (L-999) devuelve no encontrado y cero mutaciones.
+    if (candidatos.length === 0) {
+      return Response.json({ ok: true, encontrado: false });
+    }
+
+    // F3.4: Si existen múltiples candidatos históricos con el mismo código, no selecciona
+    // arbitrariamente el más reciente: se identifica como ambiguo y no muta ninguna fila.
+    if (candidatos.length > 1) {
+      return Response.json({
+        ok: true,
+        encontrado: false,
+        ambigua: true,
+        motivo: "candidatos_ambiguos",
+      });
+    }
+
+    const candidato = candidatos[0];
+
+    // F3.3: Idempotencia: si ya estaba recibido, se preserva su primera hora de llegada
+    // y solo se actualiza venta_en si corresponde. Reintentos actualizan la misma fila.
     const [fila] = await sql<Fila[]>`
       UPDATE eventos 
       SET recibido_en = coalesce(recibido_en, ${recibido}),
           venta_en = CASE WHEN ${esVenta} THEN coalesce(venta_en, ${recibido}) ELSE venta_en END
-      WHERE id = (
-        SELECT id FROM eventos 
-        WHERE (codigo = ${codigo} OR codigo = 'L-1' OR codigo LIKE 'L-%')
-          AND tipo IN ('lead', 'contacto')
-        ORDER BY CASE WHEN recibido_en IS NULL THEN 0 ELSE 1 END, creado DESC
-        LIMIT 1
-      )
+      WHERE id = ${candidato.id}
       RETURNING tipo, origen, fuente, campana, creado`;
+
     if (!fila) return Response.json({ ok: true, encontrado: false });
 
     return Response.json({
       ok: true,
       encontrado: true,
       atribucion: {
-        tipo: fila.tipo,
+        tipo: fila.tipo === "formulario_preparado" ? "lead" : fila.tipo,
         origen: fila.origen,
         origen_nombre: esRastro(fila.origen) ? RASTROS[fila.origen].nombre : fila.origen,
         fuente: fila.fuente,

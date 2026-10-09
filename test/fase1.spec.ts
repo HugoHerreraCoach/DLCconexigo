@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { rastrearLead, rastrearContacto } from "../src/shared/lib/pixeles";
 import { registrar, type Extra } from "../src/shared/lib/registro";
