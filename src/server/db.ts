@@ -70,9 +70,21 @@ export function asegurarEsquema(db: postgres.Sql) {
     .then(() => db`ALTER TABLE eventos ADD COLUMN IF NOT EXISTS plantilla text, ADD COLUMN IF NOT EXISTS nombre_huella text, ADD COLUMN IF NOT EXISTS mensaje_id text`)
     .then(() => db`CREATE UNIQUE INDEX IF NOT EXISTS eventos_mensaje_id_uidx ON eventos (mensaje_id) WHERE mensaje_id IS NOT NULL`)
     .then(() => db`CREATE INDEX IF NOT EXISTS eventos_pendientes_idx ON eventos (plantilla, creado) WHERE recibido_en IS NULL AND plantilla IS NOT NULL`)
+    // Intenciones y huellas telefónicas (2026-10): identificador de intención único y huella HMAC del teléfono
+    .then(() => db`ALTER TABLE eventos ADD COLUMN IF NOT EXISTS intencion_id text, ADD COLUMN IF NOT EXISTS telefono_huella text`)
+    .then(() => db`CREATE UNIQUE INDEX IF NOT EXISTS eventos_intencion_id_uidx ON eventos (intencion_id) WHERE intencion_id IS NOT NULL`)
+    .then(() => db`CREATE INDEX IF NOT EXISTS eventos_telefono_huella_idx ON eventos (telefono_huella) WHERE telefono_huella IS NOT NULL`)
     .catch((e) => {
-      esquemaListo = null; // reintentar en la próxima petición
+      esquemaListo = null; // reintentar si falló
       throw e;
     });
   return esquemaListo;
 }
+
+// Bootstrap asíncrono único al cargar el módulo para evitar DDL en cada petición HTTP
+if (sql) {
+  void asegurarEsquema(sql).catch((e) => {
+    console.error("[db] Error en inicialización del esquema de eventos:", e);
+  });
+}
+

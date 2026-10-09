@@ -71,17 +71,22 @@ export function FormularioContacto() {
 
     const mensaje = `Hola, quiero más información del proyecto Finca Algarrobo. Mi nombre es: ${nombre}`;
 
+    const intencionId = typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `int_${Date.now()}`;
+
     const datos = {
       motivo: campos.motivo,
       inicial: campos.inicial,
       ubicacion: "Bono cerco vivo",
       paso: "Reclamar regalo en WhatsApp",
+      celular: campos.celular.trim(),
+      nombre,
     };
 
-    abrirWhatsApp(enlaceWhatsApp(mensaje), (texto) => rastrearLead("formulario-hero", datos, texto));
+    abrirWhatsApp(enlaceWhatsApp(mensaje), (texto) => rastrearLead("formulario-hero", datos, texto, intencionId));
     setEstado("enviando");
     setTimeout(() => setEstado("enviado"), 700);
     setTimeout(() => setEstado("reposo"), 4000);
+
   };
 
   return (
@@ -286,16 +291,17 @@ export function FormularioContacto() {
           {estado === "enviado" && (
             <motion.span
               key="enviado"
-              className="flex items-center gap-2.5 text-sm sm:text-base"
+              className="flex items-center gap-2.5 text-sm sm:text-base text-center"
               initial={{ opacity: 0, scale: 0.8 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0 }}
               transition={{ type: "spring", stiffness: 420, damping: 22 }}
             >
-              <Check className="size-5" strokeWidth={3} aria-hidden="true" />
-              ¡Listo! Abriendo WhatsApp…
+              <Check className="size-5 shrink-0" strokeWidth={3} aria-hidden="true" />
+              Continúa en WhatsApp para enviar tu mensaje
             </motion.span>
           )}
+
         </AnimatePresence>
       </motion.button>
 
