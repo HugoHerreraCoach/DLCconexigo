@@ -1,6 +1,5 @@
 import Image from "next/image";
 import {
-  AlertTriangle,
   ArrowDownRight,
   ArrowUpRight,
   BarChart3,
@@ -20,8 +19,8 @@ import {
 import { limpiarMetricasPrueba, salir } from "@/app/panel/acciones";
 import { BotonVaciarMetricas } from "@/views/panel/BotonVaciarMetricas";
 import { esRastro, RASTROS } from "@/config/rastros";
-import { RANGOS, type Metricas, type ResultadoMetricas, type Totales } from "@/server/metricas";
-import type { FilaAnuncioMeta, FilaCampanaMeta, Plataforma, ResultadoCampanasMeta } from "@/server/plataformas";
+import { RANGOS, type ResultadoMetricas, type Totales } from "@/server/metricas";
+import type { Plataforma, ResultadoCampanasMeta } from "@/server/plataformas";
 import { GraficoColumnas, type Serie } from "@/views/panel/GraficoColumnas";
 import {
   BotonPlataforma,

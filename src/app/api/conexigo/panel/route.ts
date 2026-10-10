@@ -35,7 +35,7 @@ export async function POST(req: Request) {
 
   const crudo = await req.text();
   if (crudo.length > 500) return Response.json({ ok: false }, { status: 413 });
-  if (!firmaValida(crudo, req.headers.get("x-conexigo-firma"), secreto)) return Response.json({ ok: false }, { status: 401 });
+  if (!firmaValida(crudo, req.headers.get("x-conexigo-firma"), secreto, process.env.CONEXIGO_WEBHOOK_SECRET_ANTERIOR)) return Response.json({ ok: false }, { status: 401 });
 
   let cuerpo: { dias?: unknown; ts?: unknown };
   try {

@@ -52,7 +52,7 @@ export async function POST(req: Request) {
 
   // F3.8: Valida firma HMAC-SHA256
   const firma = req.headers.get("x-conexigo-firma");
-  if (!firmaValida(crudo, firma, secreto)) {
+  if (!firmaValida(crudo, firma, secreto, process.env.CONEXIGO_WEBHOOK_SECRET_ANTERIOR)) {
     return Response.json({ ok: false, error: "firma inválida" }, { status: 401 });
   }
 
