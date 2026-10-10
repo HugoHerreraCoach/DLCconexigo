@@ -45,7 +45,7 @@ export async function obtenerMetricas(rango: ParametroRango): Promise<ResultadoM
     count(*) FILTER (WHERE tipo = 'visita')::int                  AS visitas,
     count(DISTINCT visitante) FILTER (WHERE tipo = 'visita')::int AS visitantes,
     count(*) FILTER (WHERE tipo = 'contacto')::int                AS contactos,
-    count(*) FILTER (WHERE tipo = 'lead')::int                    AS leads,
+    count(*) FILTER (WHERE tipo = 'lead' OR tipo = 'formulario_preparado')::int AS leads,
     count(*) FILTER (WHERE recibido_en IS NOT NULL)::int          AS recibidos,
     count(*) FILTER (WHERE venta_en IS NOT NULL OR tipo = 'venta')::int AS ventas`;
   try {
@@ -75,13 +75,13 @@ export async function obtenerMetricas(rango: ParametroRango): Promise<ResultadoM
                     FROM eventos WHERE creado >= ${antes} AND creado < ${desde}`;
     const porDia = await db<Dia[]>`
         WITH d AS (
-          SELECT generate_series(date_trunc('day', ${desde}),
-                                 date_trunc('day', ${hasta} - interval '1 second'), interval '1 day') AS dia
+          SELECT generate_series(date_trunc('day', ${desde} AT TIME ZONE ${ZONA}),
+                                 date_trunc('day', (${hasta} - interval '1 second') AT TIME ZONE ${ZONA}), interval '1 day') AS dia
         )
         SELECT to_char(d.dia, 'YYYY-MM-DD') AS dia,
                count(e.id) FILTER (WHERE e.tipo = 'visita')::int   AS visitas,
                count(e.id) FILTER (WHERE e.tipo = 'contacto')::int AS contactos,
-               count(e.id) FILTER (WHERE e.tipo = 'lead')::int     AS leads
+               count(e.id) FILTER (WHERE e.tipo = 'lead' OR e.tipo = 'formulario_preparado')::int AS leads
         FROM d LEFT JOIN eventos e
           ON date_trunc('day', e.creado AT TIME ZONE ${ZONA}) = d.dia AND e.creado >= ${desde} AND e.creado < ${hasta}
         GROUP BY d.dia ORDER BY d.dia`;
@@ -90,12 +90,14 @@ export async function obtenerMetricas(rango: ParametroRango): Promise<ResultadoM
     const campanas = await db<FilaCampana[]>`SELECT campana, fuente, ${conteos()} FROM eventos
                         WHERE creado >= ${desde} AND creado < ${hasta} AND campana IS NOT NULL
                         GROUP BY campana, fuente ORDER BY leads DESC, contactos DESC, visitas DESC LIMIT 20`;
-    const origenes = await db<FilaOrigen[]>`SELECT coalesce(origen, 'sin-identificar') AS origen, tipo, count(*)::int AS total,
+    const origenes = await db<FilaOrigen[]>`SELECT coalesce(origen, 'sin-identificar') AS origen,
+                              CASE WHEN tipo = 'formulario_preparado' THEN 'lead' ELSE tipo END AS tipo,
+                              count(*)::int AS total,
                               count(*) FILTER (WHERE recibido_en IS NOT NULL)::int AS recibidos
-                       FROM eventos WHERE creado >= ${desde} AND creado < ${hasta} AND tipo IN ('contacto', 'lead')
+                       FROM eventos WHERE creado >= ${desde} AND creado < ${hasta} AND (tipo IN ('contacto', 'lead') OR tipo = 'formulario_preparado')
                        GROUP BY 1, 2 ORDER BY total DESC`;
     const leads = await db<Lead[]>`SELECT to_char(creado AT TIME ZONE ${ZONA}, 'YYYY-MM-DD HH24:MI') AS creado, fuente, campana, origen, datos
-                 FROM eventos WHERE creado >= ${desde} AND creado < ${hasta} AND tipo = 'lead'
+                 FROM eventos WHERE creado >= ${desde} AND creado < ${hasta} AND (tipo = 'lead' OR tipo = 'formulario_preparado')
                  ORDER BY eventos.creado DESC LIMIT 25`;
 
     return {

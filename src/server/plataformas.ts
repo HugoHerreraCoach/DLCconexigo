@@ -96,7 +96,7 @@ export type FilaAnuncioMeta = {
 
 export type TotalesMeta = {
   gasto: number;
-  presupuestoDiarioTotal: number;
+  presupuestoDiarioTotal: number | null;
   formularios: number;
   conversaciones: number;
   leadsTotales: number;
@@ -116,6 +116,7 @@ export type ResultadoCampanasMeta =
     anuncios: FilaAnuncioMeta[];
     anuncioGanador: FilaAnuncioMeta | null;
     totales: TotalesMeta;
+    errorParcial?: string;
   }
   | { estado: "sin-configurar" }
   | { estado: "error"; mensaje: string };
@@ -210,7 +211,7 @@ export async function campanasMeta(rangoParam: ParametroRango): Promise<Resultad
   const rango = encodeURIComponent(JSON.stringify({ since: desde, until: hasta }));
 
   try {
-    // Consultas en paralelo para rapidez: cuenta, lista de campañas, insights de campañas y de anuncios
+    let errorParcialMeta: string | null = null;
     const [cuenta, campanas, insightsCampanas, insightsAds] = await Promise.all([
       graph<RespuestaCuenta>(`${META_CUENTA}?fields=currency`, token),
       graph<RespuestaCampanas>(
@@ -220,11 +221,17 @@ export async function campanasMeta(rangoParam: ParametroRango): Promise<Resultad
       graph<RespuestaInsights>(
         `${META_CUENTA}/insights?level=campaign&time_range=${rango}&fields=campaign_id,campaign_name,spend,actions,impressions,reach&limit=200`,
         token,
-      ).catch(() => ({ data: [] } as RespuestaInsights)),
+      ).catch((e) => {
+        errorParcialMeta = `Fallo al obtener insights de campañas: ${e instanceof Error ? e.message : String(e)}`;
+        return { data: [] } as RespuestaInsights;
+      }),
       graph<RespuestaInsightsAds>(
         `${META_CUENTA}/insights?level=ad&time_range=${rango}&fields=ad_id,ad_name,campaign_id,campaign_name,spend,actions,impressions,reach&limit=200`,
         token,
-      ).catch(() => ({ data: [] } as RespuestaInsightsAds)),
+      ).catch((e) => {
+        errorParcialMeta ??= `Fallo al obtener insights de anuncios: ${e instanceof Error ? e.message : String(e)}`;
+        return { data: [] } as RespuestaInsightsAds;
+      }),
     ]);
 
     const todasCampanas = campanas.data ?? [];
@@ -277,12 +284,15 @@ export async function campanasMeta(rangoParam: ParametroRango): Promise<Resultad
       const leadsTotales = formularios + conversaciones;
       const costoPorLead = leadsTotales > 0 ? gasto / leadsTotales : null;
 
+      // F5.5: Presupuesto ausente es null, no un valor falso hardcodeado
+      const presupuestoDiario = presupuestosDiarios.get(c.id) ?? null;
+
       return {
         id: c.id,
         nombre: c.nombre || nombres.get(c.id) || "Campaña Finca Algarrobo",
         estado: c.estado,
         gasto,
-        presupuestoDiario: presupuestosDiarios.get(c.id) ?? 70,
+        presupuestoDiario,
         presupuestoTotal: presupuestosTotales.get(c.id) ?? null,
         formularios,
         conversaciones,
@@ -343,7 +353,15 @@ export async function campanasMeta(rangoParam: ParametroRango): Promise<Resultad
 
     // 4. Totales consolidados de Meta
     const gastoTotal = filas.reduce((acc, f) => acc + f.gasto, 0);
-    const presupuestoDiarioTotal = filas.reduce((acc, f) => acc + (f.presupuestoDiario ?? 70), 0) || 140;
+    // F5.5: Presupuesto total es suma de presupuestos válidos o null si no hay ninguno configurado
+    const presupuestosValidos = filas
+      .map((f) => f.presupuestoDiario)
+      .filter((p): p is number => p !== null && !isNaN(p));
+    const presupuestoDiarioTotal =
+      presupuestosValidos.length > 0
+        ? presupuestosValidos.reduce((acc, p) => acc + p, 0)
+        : null;
+
     const formulariosTotal = filas.reduce((acc, f) => acc + f.formularios, 0);
     const conversacionesTotal = filas.reduce((acc, f) => acc + f.conversaciones, 0);
     const leadsTotales = formulariosTotal + conversacionesTotal;
@@ -369,6 +387,7 @@ export async function campanasMeta(rangoParam: ParametroRango): Promise<Resultad
       anuncios,
       anuncioGanador,
       totales,
+      errorParcial: errorParcialMeta ?? undefined,
     };
   } catch (e) {
     return { estado: "error", mensaje: e instanceof Error ? e.message : String(e) };

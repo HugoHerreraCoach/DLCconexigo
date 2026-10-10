@@ -350,9 +350,9 @@ export function PanelView({
                 colorIcono="text-dlc"
                 detalle={
                   <p className="text-xs text-neutral-400">
-                    {metaOk && meta.totales.presupuestoDiarioTotal > 0
+                    {metaOk && meta.totales.presupuestoDiarioTotal !== null && meta.totales.presupuestoDiarioTotal > 0
                       ? `Presupuesto: ${formatoSoles(meta.totales.presupuestoDiarioTotal, moneda)} / día`
-                      : "Presupuesto: S/ 140.00 / día"}
+                      : "Presupuesto: no configurado"}
                   </p>
                 }
               />
@@ -544,7 +544,7 @@ export function PanelView({
                           <span className="mt-0.5 block text-xs sm:text-sm font-bold text-dlc">
                             {campana.presupuestoDiario !== null
                               ? `${formatoSoles(campana.presupuestoDiario, moneda)}/d`
-                              : "S/ 70.00/d"}
+                              : "—"}
                           </span>
                         </div>
                         <div>
