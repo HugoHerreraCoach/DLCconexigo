@@ -1,24 +1,34 @@
 "use client";
 
-import { useId, useState } from "react";
+import { useId, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowRight, Check, Gift, Loader2, User } from "lucide-react";
-import { INICIALES, MOTIVOS, type Consulta } from "@/config/contenido";
+import { ArrowRight, Check, Gift, Loader2, User, UserPlus } from "lucide-react";
+import { INICIALES, PREGUNTAS, TIEMPOS_COMPRA, type Inicial, type TiempoCompra } from "@/config/contenido";
+import { celularPeru, enviarFormulario } from "@/shared/lib/formulario";
 import { EASE } from "@/shared/lib/motion";
-import { rastrearLead } from "@/shared/lib/pixeles";
-import { abrirWhatsApp, enlaceWhatsApp, guardarNombreLead } from "@/shared/lib/whatsapp";
-import { IconoWhatsApp } from "@/shared/ui/IconoWhatsApp";
+import { clientePotencial } from "@/shared/lib/pixeles";
+import { guardarNombreLead } from "@/shared/lib/whatsapp";
 
-type Estado = "reposo" | "enviando" | "enviado";
-type Campos = Pick<Consulta, "motivo" | "inicial"> & { nombre: string; celular: string };
-type Errores = Partial<Record<"nombre" | "celular", string>>;
+/* El formulario ya no abre WhatsApp (2026-10-17): la respuesta se guarda como
+   fila en la hoja de cálculo de leads (/api/formulario) y SOLO cuando el
+   servidor confirma la fila se envía «Cliente potencial» a los píxeles. */
+
+type Estado = "reposo" | "enviando" | "enviado" | "error";
+// Sin opción marcada de entrada: así la hoja no se llena de «Este mes» que nadie eligió.
+type Campos = { nombre: string; celular: string; inicial: Inicial | null; compra: TiempoCompra | null };
+type Errores = Partial<Record<keyof Campos, string>>;
 
 function validar(c: Campos): Errores {
   const e: Errores = {};
   if (c.nombre.trim().length < 2) e.nombre = "Escribe tu nombre y apellido.";
-  if (c.celular.replace(/\D/g, "").length < 9) e.celular = "Escribe un número de celular de 9 dígitos.";
+  if (!celularPeru(c.celular)) e.celular = "Escribe un celular de 9 dígitos que empiece con 9.";
+  if (!c.inicial) e.inicial = "Elige con cuánto cuentas de inicial.";
+  if (!c.compra) e.compra = "Elige cuándo quieres comprar.";
   return e;
 }
+
+const nuevoId = () =>
+  typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `reg_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
 
 function MensajeError({ id, texto }: { id: string; texto?: string }) {
   return (
@@ -38,55 +48,106 @@ function MensajeError({ id, texto }: { id: string; texto?: string }) {
   );
 }
 
+/** Pregunta con opciones tipo chip (una sola elección). `id` va en el grupo
+ *  para poder enfocar su primera opción si falta responderla. */
+function Opciones<T extends string>({
+  id,
+  titulo,
+  opciones,
+  valor,
+  error,
+  onElegir,
+}: {
+  id: string;
+  titulo: string;
+  opciones: readonly T[];
+  valor: T | null;
+  error?: string;
+  onElegir: (v: T) => void;
+}) {
+  return (
+    <div id={id} role="group" aria-labelledby={`${id}-t`} aria-describedby={error ? `${id}-e` : undefined}>
+      <p id={`${id}-t`} className="mb-2 block text-xs font-bold text-neutral-700 uppercase tracking-wide">
+        {titulo}
+      </p>
+      <div className="grid grid-cols-3 gap-2">
+        {opciones.map((o) => {
+          const seleccionado = valor === o;
+          return (
+            <button
+              key={o}
+              type="button"
+              aria-pressed={seleccionado}
+              onClick={() => onElegir(o)}
+              className={`relative flex min-h-12 items-center justify-center rounded-xl border px-3 py-1.5 text-center text-[11px] leading-tight font-semibold transition-all cursor-pointer active:scale-[0.98] sm:text-xs ${
+                seleccionado
+                  ? "border-emerald-600 bg-emerald-50 text-emerald-950 ring-2 ring-emerald-500/25 shadow-xs"
+                  : error
+                    ? "border-red-300 bg-neutral-50/70 text-neutral-600 hover:border-red-400 hover:text-neutral-900"
+                    : "border-neutral-200 bg-neutral-50/70 text-neutral-600 hover:border-neutral-300 hover:bg-neutral-100/80 hover:text-neutral-900"
+              }`}
+            >
+              {o}
+              {seleccionado && (
+                <span className="absolute top-1 right-1 flex size-3.5 items-center justify-center rounded-full bg-emerald-600 text-white">
+                  <Check className="size-2 stroke-[3]" aria-hidden="true" />
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+      <MensajeError id={`${id}-e`} texto={error} />
+    </div>
+  );
+}
+
 export function FormularioContacto() {
-  const [campos, setCampos] = useState<Campos>({
-    motivo: MOTIVOS[0],
-    inicial: INICIALES[0],
-    nombre: "",
-    celular: "",
-  });
+  const [campos, setCampos] = useState<Campos>({ nombre: "", celular: "", inicial: null, compra: null });
   const [errores, setErrores] = useState<Errores>({});
   const [intentado, setIntentado] = useState(false);
   const [estado, setEstado] = useState<Estado>("reposo");
+  // Id del envío: se mantiene en los reintentos (el servidor no duplica la fila)
+  // y se renueva si la persona cambia algún dato.
+  const registroId = useRef<string | null>(null);
   const idNombre = useId();
   const idCelular = useId();
+  const idInicial = useId();
+  const idCompra = useId();
 
   const actualizar = <K extends keyof Campos>(k: K, v: Campos[K]) => {
     const nuevos = { ...campos, [k]: v };
     setCampos(nuevos);
+    registroId.current = null;
     if (intentado) setErrores(validar(nuevos));
   };
 
-  const enviar = (e: React.FormEvent<HTMLFormElement>) => {
+  const enviar = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (estado !== "reposo") return;
+    if (estado === "enviando" || estado === "enviado") return;
     setIntentado(true);
     const errs = validar(campos);
     setErrores(errs);
     if (errs.nombre) return document.getElementById(idNombre)?.focus();
     if (errs.celular) return document.getElementById(idCelular)?.focus();
+    if (errs.inicial) return document.getElementById(idInicial)?.querySelector("button")?.focus();
+    if (errs.compra) return document.getElementById(idCompra)?.querySelector("button")?.focus();
+    const { inicial, compra } = campos;
+    if (!inicial || !compra) return;
 
     const nombre = campos.nombre.trim();
     guardarNombreLead(nombre);
-
-    const mensaje = `Hola, quiero más información del proyecto Finca Algarrobo. Mi nombre es: ${nombre}`;
-
-    const intencionId = typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `int_${Date.now()}`;
-
-    const datos = {
-      motivo: campos.motivo,
-      inicial: campos.inicial,
-      ubicacion: "Bono cerco vivo",
-      paso: "Reclamar regalo en WhatsApp",
-      celular: campos.celular.trim(),
-      nombre,
-    };
-
-    abrirWhatsApp(enlaceWhatsApp(mensaje), (texto) => rastrearLead("formulario-hero", datos, texto, intencionId));
+    registroId.current ??= nuevoId();
     setEstado("enviando");
-    setTimeout(() => setEstado("enviado"), 700);
-    setTimeout(() => setEstado("reposo"), 4000);
 
+    try {
+      const id = await enviarFormulario(registroId.current, { nombre, celular: campos.celular, inicial, compra });
+      // La fila ya está en la hoja: recién ahora cuenta como «Cliente potencial».
+      clientePotencial("formulario-hero", id, { inicial, compra });
+      setEstado("enviado");
+    } catch {
+      setEstado("error");
+    }
   };
 
   return (
@@ -99,9 +160,9 @@ export function FormularioContacto() {
     >
       {/* Título de acción claro */}
       <p id="formulario-titulo" className="text-center text-sm font-medium text-neutral-600 sm:text-base leading-snug">
-        Toca el botón de abajo para{" "}
+        Déjanos tus datos para{" "}
         <strong className="font-extrabold text-neutral-950 block sm:inline">
-          reclamarlo por WhatsApp.
+          reclamar tu regalo.
         </strong>
       </p>
 
@@ -172,87 +233,33 @@ export function FormularioContacto() {
           <MensajeError id={`${idCelular}-e`} texto={errores.celular} />
         </div>
 
-        {/* Selector interactivo: Lo quiero para (Chips clicables) */}
-        <div>
-          <label className="mb-2 block text-xs font-bold text-neutral-700 uppercase tracking-wide">
-            Lo quiero para:
-          </label>
-          <div className="grid grid-cols-2 gap-2.5">
-            {MOTIVOS.map((m) => {
-              const seleccionado = campos.motivo === m;
-              return (
-                <button
-                  key={m}
-                  type="button"
-                  onClick={() => actualizar("motivo", m)}
-                  className={`group relative flex h-11 items-center justify-between rounded-xl border px-3 sm:px-3.5 text-center text-xs sm:text-sm font-semibold transition-all cursor-pointer active:scale-[0.98] ${
-                    seleccionado
-                      ? "border-emerald-600 bg-emerald-50 text-emerald-950 ring-2 ring-emerald-500/25 shadow-xs"
-                      : "border-neutral-200 bg-neutral-50/70 text-neutral-600 hover:border-neutral-300 hover:bg-neutral-100/80 hover:text-neutral-900"
-                  }`}
-                >
-                  <span className="truncate">{m}</span>
-                  <span
-                    className={`flex size-4 shrink-0 items-center justify-center rounded-full transition-all ${
-                      seleccionado
-                        ? "bg-emerald-600 text-white scale-100"
-                        : "border border-neutral-300 bg-white group-hover:border-neutral-400 scale-90"
-                    }`}
-                  >
-                    {seleccionado && <Check className="size-2.5 stroke-[3]" />}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
+        <Opciones
+          id={idInicial}
+          titulo={PREGUNTAS.inicial}
+          opciones={INICIALES}
+          valor={campos.inicial}
+          error={errores.inicial}
+          onElegir={(v) => actualizar("inicial", v)}
+        />
 
-        {/* Selector interactivo: Inicial (Chips clicables en cuadrícula) */}
-        <div>
-          <label className="mb-2 block text-xs font-bold text-neutral-700 uppercase tracking-wide">
-            Inicial estimada:
-          </label>
-          <div className="grid grid-cols-2 gap-2">
-            {INICIALES.map((ini) => {
-              const seleccionado = campos.inicial === ini;
-              return (
-                <button
-                  key={ini}
-                  type="button"
-                  onClick={() => actualizar("inicial", ini)}
-                  className={`group relative flex h-11 items-center justify-between rounded-xl border px-2.5 sm:px-3 text-center transition-all cursor-pointer active:scale-[0.98] ${
-                    seleccionado
-                      ? "border-emerald-600 bg-emerald-50 text-emerald-950 ring-2 ring-emerald-500/25 shadow-xs"
-                      : "border-neutral-200 bg-neutral-50/70 text-neutral-600 hover:border-neutral-300 hover:bg-neutral-100/80 hover:text-neutral-900"
-                  }`}
-                >
-                  <span className="text-[11px] sm:text-xs leading-tight font-semibold text-left truncate mr-1">
-                    {ini}
-                  </span>
-                  <span
-                    className={`flex size-3.5 sm:size-4 shrink-0 items-center justify-center rounded-full transition-all ${
-                      seleccionado
-                        ? "bg-emerald-600 text-white scale-100"
-                        : "border border-neutral-300 bg-white group-hover:border-neutral-400 scale-90"
-                    }`}
-                  >
-                    {seleccionado && <Check className="size-2 sm:size-2.5 stroke-[3]" />}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
+        <Opciones
+          id={idCompra}
+          titulo={PREGUNTAS.compra}
+          opciones={TIEMPOS_COMPRA}
+          valor={campos.compra}
+          error={errores.compra}
+          onElegir={(v) => actualizar("compra", v)}
+        />
       </div>
 
-      {/* Botón CTA Verde WhatsApp interactivo con micro-animaciones */}
+      {/* Botón CTA verde interactivo con micro-animaciones */}
       <motion.button
         type="submit"
         layout
-        disabled={estado !== "reposo"}
+        disabled={estado === "enviando" || estado === "enviado"}
         aria-live="polite"
-        whileHover={estado === "reposo" ? { y: -2, scale: 1.01 } : undefined}
-        whileTap={estado === "reposo" ? { scale: 0.98 } : undefined}
+        whileHover={estado === "reposo" || estado === "error" ? { y: -2, scale: 1.01 } : undefined}
+        whileTap={estado === "reposo" || estado === "error" ? { scale: 0.98 } : undefined}
         transition={{ layout: { duration: 0.35, ease: EASE } }}
         className={`group mt-6 inline-flex h-14 w-full cursor-pointer items-center justify-center gap-2.5 rounded-2xl px-6 font-bold text-white shadow-[0_12px_28px_-6px_rgba(37,211,102,0.5)] transition-all disabled:cursor-default ${
           estado === "enviado"
@@ -261,7 +268,7 @@ export function FormularioContacto() {
         }`}
       >
         <AnimatePresence mode="wait" initial={false}>
-          {estado === "reposo" && (
+          {(estado === "reposo" || estado === "error") && (
             <motion.span
               key="reposo"
               className="flex items-center justify-center gap-2.5 text-sm sm:text-base tracking-wide uppercase"
@@ -270,8 +277,8 @@ export function FormularioContacto() {
               exit={{ opacity: 0, y: -8 }}
               transition={{ duration: 0.2 }}
             >
-              <IconoWhatsApp className="size-5 shrink-0" />
-              <span>Reclamar regalo en WhatsApp</span>
+              <UserPlus className="size-5 shrink-0" aria-hidden="true" />
+              <span>{estado === "error" ? "Intentar de nuevo" : "Registrarme"}</span>
               <ArrowRight className="size-4.5 transition-transform duration-300 group-hover:translate-x-1" aria-hidden="true" />
             </motion.span>
           )}
@@ -285,7 +292,7 @@ export function FormularioContacto() {
               transition={{ duration: 0.2 }}
             >
               <Loader2 className="size-5 animate-spin motion-reduce:animate-none" aria-hidden="true" />
-              Conectando con WhatsApp…
+              Registrando tus datos…
             </motion.span>
           )}
           {estado === "enviado" && (
@@ -298,12 +305,25 @@ export function FormularioContacto() {
               transition={{ type: "spring", stiffness: 420, damping: 22 }}
             >
               <Check className="size-5 shrink-0" strokeWidth={3} aria-hidden="true" />
-              Continúa en WhatsApp para enviar tu mensaje
+              ¡Listo! Un asesor te contactará pronto
             </motion.span>
           )}
-
         </AnimatePresence>
       </motion.button>
+
+      <AnimatePresence>
+        {estado === "error" && (
+          <motion.p
+            role="alert"
+            initial={{ opacity: 0, y: -4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0 }}
+            className="mt-2.5 text-center text-xs font-medium text-red-600"
+          >
+            No pudimos registrar tus datos. Revisa tu conexión e inténtalo de nuevo.
+          </motion.p>
+        )}
+      </AnimatePresence>
 
       {/* Insignia de seguridad y confianza inferior */}
       <div className="mt-3 flex items-center justify-center">

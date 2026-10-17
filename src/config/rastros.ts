@@ -3,7 +3,8 @@
    WhatsApp, un formulario…) se da de alta AQUÍ con un id y un nombre. Con eso:
      · el panel (/panel) lo muestra por su nombre en "¿Qué generó cada contacto?"
        y en "Últimos formularios";
-     · Meta y TikTok reciben el nombre en sus eventos (Contact / Lead);
+     · Meta y TikTok reciben el nombre en «Cliente potencial» (formularios ya
+       guardados en la hoja de cálculo y, por ahora, las acciones del chat flotante);
      · la API (/api/eventos) solo acepta ids de este catálogo.
 
    CÓMO AGREGAR UN ELEMENTO NUEVO
@@ -25,8 +26,9 @@
         Si los enlaces salen de una lista de datos, guarda el id con
           { texto, href, rastro: idRastro("promo-banner-whatsapp") }
         y al renderizar usa {...marcaRastro(e.rastro)}.
-      · Formulario: al enviarlo llama a
-          rastrearLead("mi-formulario", { motivo, inicial, ubicacion, paso })
+      · Formulario que va a la hoja de cálculo: como FormularioContacto, envía
+        con enviarFormulario() (src/shared/lib/formulario.ts) y, con la fila ya
+        confirmada, llama a clientePotencial("mi-formulario", id, datos)
         (src/shared/lib/pixeles.ts).
    3. No hay paso 3: el panel lo muestra en cuanto tenga actividad.
       TypeScript marca error si usas un id que no está aquí.
@@ -64,7 +66,10 @@ export const RASTROS = {
   "footer-documentacion": { nombre: "Enlace «Documentación» del pie", tipo: "contacto", seccion: "Pie de página" },
   "footer-whatsapp": { nombre: "Enlace «Escríbenos por WhatsApp» del pie", tipo: "contacto", seccion: "Pie de página" },
   "whatsapp-flotante": { nombre: "Botón flotante de WhatsApp", tipo: "contacto", seccion: "Toda la página" },
-  // Chat flotante (se abre con el botón verde): dos opciones rápidas y mensaje libre.
+  // Chat flotante (se abre con el botón «¡Hablemos!»): desde 2026-10-17, dos
+  // preguntas (inicial y cuándo comprar) y «Continuar en WhatsApp».
+  "chat-flotante-preguntas": { nombre: "Chat flotante · inicial y cuándo comprar", tipo: "contacto", seccion: "Chat flotante" },
+  // Retirados el 2026-10-17 (dos opciones rápidas y mensaje libre); quedan por el histórico.
   "chat-flotante-visita": { nombre: "Chat flotante · «Agendar visita este fin de semana»", tipo: "contacto", seccion: "Chat flotante" },
   "chat-flotante-asesor": { nombre: "Chat flotante · «Quiero que me contacte un asesor»", tipo: "contacto", seccion: "Chat flotante" },
   "chat-flotante-mensaje": { nombre: "Chat flotante · mensaje escrito por el visitante", tipo: "contacto", seccion: "Chat flotante" },

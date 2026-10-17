@@ -6,26 +6,20 @@
 
 export const FOTO_HERO = "/galeria/porton-ingreso.jpg";
 
-/* ── Opciones del formulario de contacto (hero) ────────────────────────────
-   Qué busca la persona: para qué quiere el lote, con cuánta inicial cuenta y
-   qué ubicación prefiere dentro del condominio. Viajan en el mensaje de
-   WhatsApp para que el asesor llegue a la conversación con contexto. */
-export const MOTIVOS = ["Invertir", "Casa de campo"] as const;
-export const INICIALES = ["Desde S/ 5,000", "S/ 10,000 a más", "S/ 20,000 a más", "Pago al contado"] as const;
-export const UBICACIONES_LOTE = ["Sin preferencia", "Cerca al parque", "Cerca a las canchas", "Lote en esquina"] as const;
-export const SIGUIENTE_PASO = ["Visitarlo este fin de semana", "Recibir el video recorrido", "Conocer mi plan de cuotas"] as const;
+/* ── Preguntas del formulario (hero) y del chat flotante ────────────────────
+   Las mismas que el formulario instantáneo de TikTok: con cuánto cuenta de
+   inicial y cuándo quiere comprar. El formulario las guarda en la hoja de
+   leads (columnas INICIAL y TIEMPO DE COMPRA); el chat las manda en el
+   mensaje de WhatsApp para que el asesor llegue con contexto. */
+export const PREGUNTAS = {
+  inicial: "¿Con cuánto cuentas de inicial?",
+  compra: "¿Cuándo quieres comprar?",
+} as const;
+export const INICIALES = ["S/ 5,000 a S/ 10,000", "Más de S/ 10,000", "Pago al contado"] as const;
+export const TIEMPOS_COMPRA = ["Este mes", "De 1 a 3 meses", "Más adelante"] as const;
 
-export type Consulta = {
-  motivo: (typeof MOTIVOS)[number];
-  inicial: (typeof INICIALES)[number];
-  ubicacion: (typeof UBICACIONES_LOTE)[number];
-};
-
-export const CONSULTA_INICIAL: Consulta = {
-  motivo: MOTIVOS[0],
-  inicial: INICIALES[0],
-  ubicacion: UBICACIONES_LOTE[0],
-};
+export type Inicial = (typeof INICIALES)[number];
+export type TiempoCompra = (typeof TIEMPOS_COMPRA)[number];
 
 /* ── Espacios del condominio (grid) ─────────────────────────────────────── */
 export type Espacio = { titulo: string; texto: string; imagen: string; alt: string };

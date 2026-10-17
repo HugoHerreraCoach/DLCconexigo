@@ -1,32 +1,64 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import Image from "next/image";
 import { AnimatePresence, motion } from "framer-motion";
-import { Send, X, Calendar, Headset } from "lucide-react";
-import { idRastro, marcaRastro } from "@/config/rastros";
+import { X } from "lucide-react";
+import { INICIALES, PREGUNTAS, TIEMPOS_COMPRA, type Inicial, type TiempoCompra } from "@/config/contenido";
 import { rastrearContacto } from "@/shared/lib/pixeles";
-import { abrirWhatsApp, enlaceWhatsApp, MENSAJES, mensajeConNombre } from "@/shared/lib/whatsapp";
+import { abrirWhatsApp, enlaceWhatsApp, mensajeChat, mensajeConNombre } from "@/shared/lib/whatsapp";
 import { IconoWhatsApp } from "@/shared/ui/IconoWhatsApp";
 
-const OPCIONES_CHAT = [
-  {
-    icono: Calendar,
-    titulo: "Agendar visita este fin de semana",
-    mensaje: MENSAJES.visita,
-    rastro: idRastro("chat-flotante-visita"),
-  },
-  {
-    icono: Headset,
-    titulo: "Quiero que me contacte un asesor ahora mismo",
-    mensaje: MENSAJES.asesor,
-    rastro: idRastro("chat-flotante-asesor"),
-  },
-] as const;
+/* Chat flotante (2026-10-17): las mismas dos preguntas del formulario y
+   «Continuar en WhatsApp», que abre WhatsApp con las respuestas en el mensaje
+   y envía «Cliente potencial» (rastrearContacto → CHAT_FLOTANTE). */
+
+/** Pregunta del chat con respuestas tipo píldora (una sola elección). */
+function PreguntaChat<T extends string>({
+  titulo,
+  opciones,
+  valor,
+  onElegir,
+}: {
+  titulo: string;
+  opciones: readonly T[];
+  valor: T | null;
+  onElegir: (v: T) => void;
+}) {
+  const id = useId();
+  return (
+    <div role="group" aria-labelledby={id} className="space-y-2">
+      <p id={id} className="px-1 text-xs font-semibold text-neutral-100">
+        {titulo}
+      </p>
+      <div className="flex flex-wrap gap-2">
+        {opciones.map((o) => {
+          const elegida = valor === o;
+          return (
+            <button
+              key={o}
+              type="button"
+              aria-pressed={elegida}
+              onClick={() => onElegir(o)}
+              className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-all active:scale-95 ${
+                elegida
+                  ? "border-dlc bg-dlc text-neutral-950"
+                  : "border-white/15 bg-white/[0.04] text-neutral-200 hover:border-dlc/60 hover:bg-dlc/[0.08] hover:text-white"
+              }`}
+            >
+              {o}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
 
 export function WhatsAppFlotante() {
   const [abierto, setAbierto] = useState(false);
-  const [textoMensaje, setTextoMensaje] = useState("");
+  const [inicial, setInicial] = useState<Inicial | null>(null);
+  const [compra, setCompra] = useState<TiempoCompra | null>(null);
   const [burbujaVisible, setBurbujaVisible] = useState(false);
 
   // Muestra un globo sugerente después de 3 segundos si aún no se abrió el chat
@@ -52,11 +84,12 @@ export function WhatsAppFlotante() {
     setBurbujaVisible(false);
   };
 
-  const enlaceMensajePersonalizado = enlaceWhatsApp(
-    textoMensaje.trim()
-      ? mensajeConNombre(`Hola Grupo DLC, ${textoMensaje.trim()}`)
-      : mensajeConNombre(MENSAJES.general)
-  );
+  const continuar = () => {
+    if (!inicial || !compra) return;
+    abrirWhatsApp(enlaceWhatsApp(mensajeConNombre(mensajeChat(inicial, compra))), (texto) =>
+      rastrearContacto("chat-flotante-preguntas", texto, undefined, { inicial, compra }),
+    );
+  };
 
   return (
     <div className="fixed right-3 bottom-3 z-50 flex flex-col items-end sm:right-6 sm:bottom-6">
@@ -135,61 +168,27 @@ export function WhatsAppFlotante() {
                 </div>
               </div>
 
-              {/* Opciones interactivas rápidas */}
-              <div className="pt-1 space-y-2">
+              {/* Las mismas preguntas del formulario */}
+              <div className="pt-1 space-y-4">
                 <p className="text-[11px] font-medium text-neutral-400 px-1">
                   Opciones rápidas para hablar por WhatsApp:
                 </p>
-                {OPCIONES_CHAT.map((opcion) => {
-                  const Icono = opcion.icono;
-                  return (
-                    <a
-                      key={opcion.titulo}
-                      href={enlaceWhatsApp(mensajeConNombre(opcion.mensaje))}
-                      {...marcaRastro(opcion.rastro)}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="group flex items-center justify-between gap-2.5 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2.5 text-xs text-neutral-200 transition-all hover:border-dlc/50 hover:bg-dlc/[0.08] hover:text-white"
-                    >
-                      <span className="flex items-center gap-2.5 font-medium">
-                        <Icono className="size-4 shrink-0 text-dlc group-hover:scale-110 transition-transform" />
-                        {opcion.titulo}
-                      </span>
-                      <IconoWhatsApp className="size-3.5 shrink-0 text-[#25D366] opacity-80 group-hover:opacity-100" />
-                    </a>
-                  );
-                })}
+                <PreguntaChat titulo={PREGUNTAS.inicial} opciones={INICIALES} valor={inicial} onElegir={setInicial} />
+                <PreguntaChat titulo={PREGUNTAS.compra} opciones={TIEMPOS_COMPRA} valor={compra} onElegir={setCompra} />
               </div>
             </div>
 
-            {/* Input personalizado y botón enviar por WhatsApp */}
+            {/* Abre WhatsApp con las respuestas (sin cuadro de texto libre) */}
             <div className="border-t border-white/10 bg-neutral-900/60 p-3">
-              <form
-                onSubmit={(e) => {
-                  // Enter en el cuadro de texto: mismo «Cliente potencial» que el botón de enviar.
-                  e.preventDefault();
-                  abrirWhatsApp(enlaceMensajePersonalizado, (texto) => rastrearContacto("chat-flotante-mensaje", texto));
-                }}
-                className="flex items-center gap-2"
+              <button
+                type="button"
+                onClick={continuar}
+                disabled={!inicial || !compra}
+                className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-[#25D366] text-sm font-semibold text-white shadow-sm transition-all enabled:hover:bg-[#20bd5a] enabled:active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"
               >
-                <input
-                  type="text"
-                  placeholder="Escribe tu mensaje aquí..."
-                  value={textoMensaje}
-                  onChange={(e) => setTextoMensaje(e.target.value)}
-                  className="h-10 flex-1 rounded-xl border border-white/10 bg-white/[0.05] px-3.5 text-xs text-white placeholder:text-neutral-500 focus:border-dlc focus:outline-none transition-colors"
-                />
-                <a
-                  href={enlaceMensajePersonalizado}
-                  {...marcaRastro("chat-flotante-mensaje")}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex size-10 shrink-0 items-center justify-center rounded-xl bg-[#25D366] text-white shadow-sm transition-all hover:bg-[#20bd5a] hover:scale-105 active:scale-95"
-                  aria-label="Enviar por WhatsApp"
-                >
-                  <Send className="size-4" />
-                </a>
-              </form>
+                <IconoWhatsApp className="size-4" />
+                Continuar en WhatsApp
+              </button>
               <p className="mt-2 text-center text-[10px] text-neutral-400">
                 ⚡ Te atenderemos directamente por WhatsApp sin compromiso
               </p>

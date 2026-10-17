@@ -2,12 +2,11 @@
 
 import Image from "next/image";
 import { motion } from "framer-motion";
-import { ArrowUpRight, Check, MapPin, TrendingUp } from "lucide-react";
+import { ArrowUpRight, Check, MapPin, TrendingUp, UserPlus } from "lucide-react";
 import { ESPACIOS } from "@/config/contenido";
 import { OFERTA, SITIO } from "@/config/sitio";
 import { alEntrar, EASE, escalonar, subir } from "@/shared/lib/motion";
 import { Encabezado } from "@/shared/ui/Encabezado";
-import { IconoWhatsApp } from "@/shared/ui/IconoWhatsApp";
 import { PlanoMaestro } from "./PlanoMaestro";
 
 const FICHA = [
@@ -95,8 +94,8 @@ export function Proyecto() {
                 href="#formulario"
                 className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-dlc px-6 font-semibold whitespace-nowrap text-neutral-950 transition-colors hover:bg-dlc-claro"
               >
-                <IconoWhatsApp className="size-5" />
-                Agenda tu visita
+                <UserPlus className="size-5" aria-hidden="true" />
+                Registrarme
               </a>
               <a
                 href="#formulario"

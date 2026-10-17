@@ -730,7 +730,7 @@ export function PanelView({
                   <thead>
                     <tr className="border-b border-white/10 bg-white/[0.02] text-xs font-semibold text-neutral-400">
                       <th className="py-3 px-4">Fecha y Hora</th>
-                      <th className="py-3 px-4">Interés</th>
+                      <th className="py-3 px-4">Compra / interés</th>
                       <th className="py-3 px-4">Inicial</th>
                       <th className="py-3 px-4">Formulario / Botón</th>
                       <th className="py-3 px-4">Fuente / Campaña</th>
@@ -742,7 +742,8 @@ export function PanelView({
                         <td className="py-3 px-4 font-mono text-xs text-neutral-400 whitespace-nowrap">{l.creado}</td>
                         <td className="py-3 px-4 font-medium text-white">
                           <span className="inline-flex items-center gap-1.5 rounded-full border border-dlc/30 bg-dlc/10 px-2.5 py-0.5 text-xs text-dlc font-semibold">
-                            {l.datos?.motivo || "Casa de campo"}
+                            {/* Nuevos: cuándo quiere comprar (2026-10-17); antiguos: para qué lo quería. */}
+                            {l.datos?.compra || l.datos?.motivo || "—"}
                           </span>
                         </td>
                         <td className="py-3 px-4 text-xs text-neutral-300">{l.datos?.inicial || "—"}</td>

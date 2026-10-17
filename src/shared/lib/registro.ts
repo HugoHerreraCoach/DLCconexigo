@@ -69,6 +69,18 @@ function atribucion(): Atribucion {
   return nueva;
 }
 
+function esMovil(): boolean {
+  return typeof window !== "undefined" && typeof window.matchMedia === "function"
+    ? window.matchMedia("(max-width: 767px)").matches
+    : false;
+}
+
+/** Visitante y procedencia, para lo que el servidor registra por su cuenta
+ *  (el formulario → hoja de cálculo, ver /api/formulario). */
+export function contextoVisita() {
+  return { visitante: visitante(), ...atribucion(), movil: esMovil() };
+}
+
 /** `plantilla`, `nombre`, `telefono`: para reconocer el mensaje de WhatsApp cuando llegue
  *  al CRM. El servidor calcula únicamente huellas HMAC sin almacenar datos en claro. */
 export type Extra = {
@@ -96,18 +108,13 @@ export function registrar(tipo: TipoEvento, extra: Extra = {}): string {
   }
 
   try {
-    const esMovil =
-      typeof window !== "undefined" && typeof window.matchMedia === "function"
-        ? window.matchMedia("(max-width: 767px)").matches
-        : false;
-
+    // intencion_id va al final: `extra` puede traerlo como undefined y no debe
+    // borrar el id generado (es el id del evento del píxel y el de deduplicación).
     const cuerpo = JSON.stringify({
       tipo,
-      intencion_id: intencionId,
-      visitante: visitante(),
-      ...atribucion(),
-      movil: esMovil,
+      ...contextoVisita(),
       ...extra,
+      intencion_id: intencionId,
     });
 
     if (typeof navigator !== "undefined" && navigator.sendBeacon) {

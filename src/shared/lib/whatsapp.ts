@@ -65,4 +65,11 @@ export const MENSAJES = {
   ficha: "Hola, quiero evaluar la inversión. ¿Me envían la ficha del proyecto Finca Algarrobo?",
   video: "Hola, ¿me pueden enviar el video recorrido de Finca Algarrobo?",
   documentos: "Hola, quiero conocer el detalle de la documentación de Finca Algarrobo.",
+  // Chat flotante (desde 2026-10-17): va seguido de las respuestas (ver mensajeChat).
+  chat: "Hola, quiero información para comprar un lote en Finca Algarrobo.",
 } as const;
+
+/** Mensaje del chat flotante con sus dos respuestas. Empieza con
+ *  MENSAJES.chat para que el CRM lo reconozca (plantillaDe). */
+export const mensajeChat = (inicial: string, compra: string) =>
+  `${MENSAJES.chat} Inicial: ${inicial}. Quiero comprar: ${compra}.`;

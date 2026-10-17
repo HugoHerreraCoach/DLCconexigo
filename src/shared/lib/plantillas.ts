@@ -1,8 +1,9 @@
 import { MENSAJES } from "@/shared/lib/whatsapp";
 
 /* Reconocer los mensajes de WhatsApp que salen de la landing SIN código.
-   Cada botón abre WhatsApp con un texto fijo (MENSAJES) y el chat flotante con
-   «Hola Grupo DLC, …». A veces se añade «Mi nombre es: X». Se usa en los dos
+   Cada botón abre WhatsApp con un texto fijo (MENSAJES); el chat flotante usa
+   MENSAJES.chat seguido de sus respuestas (antes, «Hola Grupo DLC, …» →
+   "chat-libre"). A veces se añade «Mi nombre es: X». Se usa en los dos
    extremos:
      · al hacer clic → se guarda la plantilla (y una huella del nombre);
      · cuando el CRM avisa del primer mensaje → se reconoce la plantilla y se

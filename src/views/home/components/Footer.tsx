@@ -1,7 +1,6 @@
 import Image from "next/image";
-import { ArrowUp, MapPin } from "lucide-react";
+import { ArrowUp, MapPin, UserPlus } from "lucide-react";
 import { NAVEGACION, OFERTA, SITIO } from "@/config/sitio";
-import { IconoWhatsApp } from "@/shared/ui/IconoWhatsApp";
 
 const PROYECTO = [
   { texto: "Planes de financiamiento", href: "#formulario" },
@@ -61,8 +60,8 @@ export function Footer() {
                 href="#formulario"
                 className="inline-flex items-center gap-3 hover:text-white"
               >
-                <IconoWhatsApp className="size-5 text-dlc" />
-                Escríbenos por WhatsApp
+                <UserPlus className="size-5 text-dlc" aria-hidden="true" />
+                Registrarme
               </a>
             </li>
             <li>
