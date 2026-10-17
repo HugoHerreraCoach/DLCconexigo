@@ -1,34 +1,15 @@
 "use client";
 
-import { useId, useRef, useState } from "react";
+import { useId } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { ArrowRight, Check, Gift, Loader2, User, UserPlus } from "lucide-react";
-import { INICIALES, PREGUNTAS, TIEMPOS_COMPRA, type Inicial, type TiempoCompra } from "@/config/contenido";
-import { celularPeru, enviarFormulario } from "@/shared/lib/formulario";
+import { INICIALES, PREGUNTAS, TIEMPOS_COMPRA } from "@/config/contenido";
 import { EASE } from "@/shared/lib/motion";
-import { clientePotencial } from "@/shared/lib/pixeles";
-import { guardarNombreLead } from "@/shared/lib/whatsapp";
+import { useRegistro } from "./useRegistro";
 
 /* El formulario ya no abre WhatsApp (2026-10-17): la respuesta se guarda como
-   fila en la hoja de cálculo de leads (/api/formulario) y SOLO cuando el
-   servidor confirma la fila se envía «Cliente potencial» a los píxeles. */
-
-type Estado = "reposo" | "enviando" | "enviado" | "error";
-// Sin opción marcada de entrada: así la hoja no se llena de «Este mes» que nadie eligió.
-type Campos = { nombre: string; celular: string; inicial: Inicial | null; compra: TiempoCompra | null };
-type Errores = Partial<Record<keyof Campos, string>>;
-
-function validar(c: Campos): Errores {
-  const e: Errores = {};
-  if (c.nombre.trim().length < 2) e.nombre = "Escribe tu nombre y apellido.";
-  if (!celularPeru(c.celular)) e.celular = "Escribe un celular de 9 dígitos que empiece con 9.";
-  if (!c.inicial) e.inicial = "Elige con cuánto cuentas de inicial.";
-  if (!c.compra) e.compra = "Elige cuándo quieres comprar.";
-  return e;
-}
-
-const nuevoId = () =>
-  typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `reg_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+   fila en la hoja de cálculo de leads y SOLO cuando el servidor confirma la
+   fila se envía «Cliente potencial» a los píxeles (ver useRegistro). */
 
 function MensajeError({ id, texto }: { id: string; texto?: string }) {
   return (
@@ -103,51 +84,19 @@ function Opciones<T extends string>({
 }
 
 export function FormularioContacto() {
-  const [campos, setCampos] = useState<Campos>({ nombre: "", celular: "", inicial: null, compra: null });
-  const [errores, setErrores] = useState<Errores>({});
-  const [intentado, setIntentado] = useState(false);
-  const [estado, setEstado] = useState<Estado>("reposo");
-  // Id del envío: se mantiene en los reintentos (el servidor no duplica la fila)
-  // y se renueva si la persona cambia algún dato.
-  const registroId = useRef<string | null>(null);
+  const { campos, errores, estado, actualizar, enviar: registrar } = useRegistro("formulario-hero");
   const idNombre = useId();
   const idCelular = useId();
   const idInicial = useId();
   const idCompra = useId();
 
-  const actualizar = <K extends keyof Campos>(k: K, v: Campos[K]) => {
-    const nuevos = { ...campos, [k]: v };
-    setCampos(nuevos);
-    registroId.current = null;
-    if (intentado) setErrores(validar(nuevos));
-  };
-
   const enviar = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (estado === "enviando" || estado === "enviado") return;
-    setIntentado(true);
-    const errs = validar(campos);
-    setErrores(errs);
-    if (errs.nombre) return document.getElementById(idNombre)?.focus();
-    if (errs.celular) return document.getElementById(idCelular)?.focus();
-    if (errs.inicial) return document.getElementById(idInicial)?.querySelector("button")?.focus();
-    if (errs.compra) return document.getElementById(idCompra)?.querySelector("button")?.focus();
-    const { inicial, compra } = campos;
-    if (!inicial || !compra) return;
-
-    const nombre = campos.nombre.trim();
-    guardarNombreLead(nombre);
-    registroId.current ??= nuevoId();
-    setEstado("enviando");
-
-    try {
-      const id = await enviarFormulario(registroId.current, { nombre, celular: campos.celular, inicial, compra });
-      // La fila ya está en la hoja: recién ahora cuenta como «Cliente potencial».
-      clientePotencial("formulario-hero", id, { inicial, compra });
-      setEstado("enviado");
-    } catch {
-      setEstado("error");
-    }
+    const conError = await registrar();
+    if (conError === "nombre") document.getElementById(idNombre)?.focus();
+    if (conError === "celular") document.getElementById(idCelular)?.focus();
+    if (conError === "inicial") document.getElementById(idInicial)?.querySelector("button")?.focus();
+    if (conError === "compra") document.getElementById(idCompra)?.querySelector("button")?.focus();
   };
 
   return (
@@ -190,10 +139,7 @@ export function FormularioContacto() {
               autoComplete="name"
               placeholder="Nombre y apellidos*"
               value={campos.nombre}
-              onChange={(e) => {
-                actualizar("nombre", e.target.value);
-                guardarNombreLead(e.target.value);
-              }}
+              onChange={(e) => actualizar("nombre", e.target.value)}
               aria-invalid={Boolean(errores.nombre)}
               aria-describedby={errores.nombre ? `${idNombre}-e` : undefined}
               className="w-full bg-transparent text-sm text-neutral-900 placeholder:text-neutral-400 outline-none focus:outline-none focus:ring-0 focus-visible:outline-none border-none ring-0 shadow-none"

@@ -48,6 +48,10 @@ mismo ícono de alta de usuario (`UserPlus`). Todos llevan al formulario.
 
 ### 3. Chat flotante («¡Hablemos!»)
 
+> **Actualizado en [0018](0018-chat-flotante-formulario-de-registro.md):** el chat suma nombre y celular, el
+> botón pasa a «Registrarme ahora» y va a la hoja en vez de abrir WhatsApp. Lo que sigue describe la versión
+> de 0017, que no llegó a publicarse.
+
 - Se quitaron las dos opciones rápidas y el cuadro «Escribe tu mensaje aquí…».
 - Ahora muestra las mismas dos preguntas como píldoras (una elección por pregunta) y el botón
   **«Continuar en WhatsApp»**, que se activa al responder las dos.

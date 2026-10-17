@@ -3,25 +3,25 @@ import { RASTROS } from "@/config/rastros";
 import { sql } from "@/server/db";
 import { agregarFila, configHoja, filaLead } from "@/server/hoja-calculo";
 import { huellaNombre, huellaTelefono } from "@/server/nombre-huella";
-import { celularPeru } from "@/shared/lib/formulario";
+import { celularPeru, FORMULARIOS } from "@/shared/lib/formulario";
 
-/* Formulario del hero → hoja de cálculo de leads (src/server/hoja-calculo.ts).
-   Desde el 2026-10-17 el formulario ya no abre WhatsApp: la respuesta se agrega
-   como fila en la hoja y SOLO cuando Google confirma la fila el navegador envía
-   «Cliente potencial» a los píxeles (clientePotencial en src/shared/lib/pixeles.ts),
-   con este mismo id como id del evento.
+/* Formularios de registro (hero y chat flotante) → hoja de cálculo de leads
+   (src/server/hoja-calculo.ts). Desde el 2026-10-17 ya no abren WhatsApp: la
+   respuesta se agrega como fila en la hoja y SOLO cuando Google confirma la fila
+   el navegador envía «Cliente potencial» a los píxeles (clientePotencial en
+   src/shared/lib/pixeles.ts), con este mismo id como id del evento.
 
    Contrato
    ────────
    POST /api/formulario
-   Cuerpo  { "id": "<uuid del envío>", "nombre", "celular", "inicial", "compra",
+   Cuerpo  { "id": "<uuid del envío>", "origen", "nombre", "celular", "inicial", "compra",
              "visitante", "fuente", "campana", "movil" }
+           · origen ∈ FORMULARIOS (src/shared/lib/formulario.ts); si falta, "formulario-hero"
            · inicial ∈ INICIALES y compra ∈ TIEMPOS_COMPRA (src/config/contenido.ts)
    200     { "ok": true, "id": "<id>" }        ← la fila quedó en la hoja (o ya estaba: mismo id)
    400 datos inválidos · 502 Google no confirmó la fila · 503 hoja sin configurar
    El panel lo cuenta como lead en `eventos` (tipo 'lead'), sin nombre ni celular en claro. */
 
-const ORIGEN = "formulario-hero";
 const FUENTES = new Set(["meta", "tiktok", "google", "otro", "directo"]);
 const BOTS = /bot|crawl|spider|slurp|headless|lighthouse|preview|facebookexternalhit/i;
 const ID = /^[A-Za-z0-9_-]{8,64}$/;
@@ -47,7 +47,8 @@ export async function POST(req: Request) {
   const celular = celularPeru(cuerpo.celular);
   const inicial = deLista(INICIALES, cuerpo.inicial);
   const compra = deLista(TIEMPOS_COMPRA, cuerpo.compra);
-  if (!id || !nombre || nombre.length < 2 || !celular || !inicial || !compra)
+  const origen = cuerpo.origen === undefined ? "formulario-hero" : deLista(FORMULARIOS, cuerpo.origen);
+  if (!id || !origen || !nombre || nombre.length < 2 || !celular || !inicial || !compra)
     return Response.json({ ok: false, error: "datos inválidos" }, { status: 400 });
 
   const fuente = FUENTES.has(String(cuerpo.fuente)) ? String(cuerpo.fuente) : "directo";
@@ -72,7 +73,7 @@ export async function POST(req: Request) {
   try {
     await agregarFila(
       hoja,
-      filaLead({ id, fecha: new Date(), nombre, celular, inicial, compra, fuente, campana, origen: `Landing · ${RASTROS[ORIGEN].nombre}` }),
+      filaLead({ id, fecha: new Date(), nombre, celular, inicial, compra, fuente, campana, origen: `Landing · ${RASTROS[origen].nombre}` }),
     );
   } catch (e) {
     console.error("[formulario] no se pudo agregar la fila a la hoja", e);
@@ -84,7 +85,7 @@ export async function POST(req: Request) {
     try {
       await sql`
         INSERT INTO eventos (tipo, visitante, fuente, campana, origen, movil, datos, nombre_huella, telefono_huella, intencion_id)
-        VALUES ('lead', ${texto(cuerpo.visitante, 64) ?? "desconocido"}, ${fuente}, ${campana}, ${ORIGEN}, ${cuerpo.movil === true},
+        VALUES ('lead', ${texto(cuerpo.visitante, 64) ?? "desconocido"}, ${fuente}, ${campana}, ${origen}, ${cuerpo.movil === true},
                 ${sql.json({ inicial, compra })}, ${huellaNombre(nombre)}, ${huellaTelefono(celular)}, ${id})
         ON CONFLICT DO NOTHING`;
     } catch (e) {

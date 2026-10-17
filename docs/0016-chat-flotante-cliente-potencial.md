@@ -2,6 +2,10 @@
 
 **Fecha:** 2026-10-17 · **Rama:** `Jheferson`
 
+> **Reemplazado por [0018](0018-chat-flotante-formulario-de-registro.md):** el chat ahora es un formulario de
+> registro que va a la hoja de cálculo, y ningún clic a WhatsApp envía «Cliente potencial». Esta versión no
+> llegó a publicarse.
+
 ## Qué se pidió
 
 Sobre el botón flotante «ASESOR EN LÍNEA · ¡Hablemos!» (`/html/body/div[2]/button`):

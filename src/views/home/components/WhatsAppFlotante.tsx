@@ -3,32 +3,73 @@
 import { useEffect, useId, useState } from "react";
 import Image from "next/image";
 import { AnimatePresence, motion } from "framer-motion";
-import { X } from "lucide-react";
-import { INICIALES, PREGUNTAS, TIEMPOS_COMPRA, type Inicial, type TiempoCompra } from "@/config/contenido";
-import { rastrearContacto } from "@/shared/lib/pixeles";
-import { abrirWhatsApp, enlaceWhatsApp, mensajeChat, mensajeConNombre } from "@/shared/lib/whatsapp";
+import { Check, Loader2, User, UserPlus, X } from "lucide-react";
+import { INICIALES, PREGUNTAS, TIEMPOS_COMPRA } from "@/config/contenido";
 import { IconoWhatsApp } from "@/shared/ui/IconoWhatsApp";
+import { useRegistro } from "./useRegistro";
 
-/* Chat flotante (2026-10-17): las mismas dos preguntas del formulario y
-   «Continuar en WhatsApp», que abre WhatsApp con las respuestas en el mensaje
-   y envía «Cliente potencial» (rastrearContacto → CHAT_FLOTANTE). */
+/* Chat flotante (2026-10-17): formulario de registro con los mismos campos que
+   el del hero (nombre, celular, inicial y cuándo comprar). Ya no abre WhatsApp:
+   guarda la fila en la hoja de cálculo y, con la fila confirmada, envía
+   «Cliente potencial» (ver useRegistro). En la hoja sale con su propio ORIGEN. */
 
-/** Pregunta del chat con respuestas tipo píldora (una sola elección). */
+function ErrorChat({ id, texto }: { id: string; texto?: string }) {
+  if (!texto) return null;
+  return (
+    <p id={id} className="mt-1 px-1 text-[11px] font-medium text-red-400">
+      {texto}
+    </p>
+  );
+}
+
+/** Campo de texto del chat (nombre o celular), con ícono o prefijo a la izquierda. */
+function CampoChat({
+  id,
+  error,
+  prefijo,
+  ...input
+}: { id: string; error?: string; prefijo: React.ReactNode } & React.InputHTMLAttributes<HTMLInputElement>) {
+  return (
+    <div>
+      <div
+        className={`flex h-11 items-center rounded-xl border bg-white/[0.04] px-3 transition-colors focus-within:border-dlc ${
+          error ? "border-red-400/70" : "border-white/15"
+        }`}
+      >
+        {prefijo}
+        <input
+          id={id}
+          aria-invalid={Boolean(error)}
+          aria-describedby={error ? `${id}-e` : undefined}
+          className="w-full bg-transparent text-base text-white placeholder:text-neutral-500 outline-none sm:text-sm"
+          {...input}
+        />
+      </div>
+      <ErrorChat id={`${id}-e`} texto={error} />
+    </div>
+  );
+}
+
+/** Pregunta del chat con respuestas tipo píldora (una sola elección). `id` va
+ *  en el grupo para poder enfocar su primera opción si falta responderla. */
 function PreguntaChat<T extends string>({
+  id,
   titulo,
   opciones,
   valor,
+  error,
   onElegir,
 }: {
+  id: string;
   titulo: string;
   opciones: readonly T[];
   valor: T | null;
+  error?: string;
   onElegir: (v: T) => void;
 }) {
-  const id = useId();
   return (
-    <div role="group" aria-labelledby={id} className="space-y-2">
-      <p id={id} className="px-1 text-xs font-semibold text-neutral-100">
+    <div id={id} role="group" aria-labelledby={`${id}-t`} aria-describedby={error ? `${id}-e` : undefined} className="space-y-2">
+      <p id={`${id}-t`} className="px-1 text-xs font-semibold text-neutral-100">
         {titulo}
       </p>
       <div className="flex flex-wrap gap-2">
@@ -43,7 +84,7 @@ function PreguntaChat<T extends string>({
               className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-all active:scale-95 ${
                 elegida
                   ? "border-dlc bg-dlc text-neutral-950"
-                  : "border-white/15 bg-white/[0.04] text-neutral-200 hover:border-dlc/60 hover:bg-dlc/[0.08] hover:text-white"
+                  : `${error ? "border-red-400/70" : "border-white/15"} bg-white/[0.04] text-neutral-200 hover:border-dlc/60 hover:bg-dlc/[0.08] hover:text-white`
               }`}
             >
               {o}
@@ -51,15 +92,20 @@ function PreguntaChat<T extends string>({
           );
         })}
       </div>
+      <ErrorChat id={`${id}-e`} texto={error} />
     </div>
   );
 }
 
 export function WhatsAppFlotante() {
   const [abierto, setAbierto] = useState(false);
-  const [inicial, setInicial] = useState<Inicial | null>(null);
-  const [compra, setCompra] = useState<TiempoCompra | null>(null);
   const [burbujaVisible, setBurbujaVisible] = useState(false);
+  const { campos, errores, estado, actualizar, enviar: registrar } = useRegistro("chat-flotante-registro");
+  const idFormulario = useId();
+  const idNombre = useId();
+  const idCelular = useId();
+  const idInicial = useId();
+  const idCompra = useId();
 
   // Muestra un globo sugerente después de 3 segundos si aún no se abrió el chat
   useEffect(() => {
@@ -84,12 +130,16 @@ export function WhatsAppFlotante() {
     setBurbujaVisible(false);
   };
 
-  const continuar = () => {
-    if (!inicial || !compra) return;
-    abrirWhatsApp(enlaceWhatsApp(mensajeConNombre(mensajeChat(inicial, compra))), (texto) =>
-      rastrearContacto("chat-flotante-preguntas", texto, undefined, { inicial, compra }),
-    );
+  const enviar = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const conError = await registrar();
+    if (conError === "nombre") document.getElementById(idNombre)?.focus();
+    if (conError === "celular") document.getElementById(idCelular)?.focus();
+    if (conError === "inicial") document.getElementById(idInicial)?.querySelector("button")?.focus();
+    if (conError === "compra") document.getElementById(idCompra)?.querySelector("button")?.focus();
   };
+
+  const ocupado = estado === "enviando" || estado === "enviado";
 
   return (
     <div className="fixed right-3 bottom-3 z-50 flex flex-col items-end sm:right-6 sm:bottom-6">
@@ -168,27 +218,92 @@ export function WhatsAppFlotante() {
                 </div>
               </div>
 
-              {/* Las mismas preguntas del formulario */}
-              <div className="pt-1 space-y-4">
+              {/* Los mismos campos del formulario del hero */}
+              <form id={idFormulario} onSubmit={enviar} noValidate aria-label="Registro" className="pt-1 space-y-3">
                 <p className="text-[11px] font-medium text-neutral-400 px-1">
-                  Opciones rápidas para hablar por WhatsApp:
+                  Déjanos tus datos y un asesor te escribirá por WhatsApp:
                 </p>
-                <PreguntaChat titulo={PREGUNTAS.inicial} opciones={INICIALES} valor={inicial} onElegir={setInicial} />
-                <PreguntaChat titulo={PREGUNTAS.compra} opciones={TIEMPOS_COMPRA} valor={compra} onElegir={setCompra} />
-              </div>
+                <CampoChat
+                  id={idNombre}
+                  autoComplete="name"
+                  placeholder="Nombre y apellidos*"
+                  aria-label="Nombre y apellidos"
+                  value={campos.nombre}
+                  onChange={(e) => actualizar("nombre", e.target.value)}
+                  error={errores.nombre}
+                  prefijo={<User className="mr-2 size-4 shrink-0 text-neutral-500" aria-hidden="true" />}
+                />
+                <CampoChat
+                  id={idCelular}
+                  type="tel"
+                  inputMode="tel"
+                  autoComplete="tel"
+                  placeholder="Tu número de celular*"
+                  aria-label="Número de celular"
+                  value={campos.celular}
+                  onChange={(e) => actualizar("celular", e.target.value)}
+                  error={errores.celular}
+                  prefijo={
+                    <span className="mr-2 flex shrink-0 items-center gap-1 border-r border-white/15 pr-2 text-xs font-bold text-neutral-200 select-none">
+                      <span role="img" aria-label="Bandera de Perú">
+                        🇵🇪
+                      </span>
+                      +51
+                    </span>
+                  }
+                />
+                <PreguntaChat
+                  id={idInicial}
+                  titulo={PREGUNTAS.inicial}
+                  opciones={INICIALES}
+                  valor={campos.inicial}
+                  error={errores.inicial}
+                  onElegir={(v) => actualizar("inicial", v)}
+                />
+                <PreguntaChat
+                  id={idCompra}
+                  titulo={PREGUNTAS.compra}
+                  opciones={TIEMPOS_COMPRA}
+                  valor={campos.compra}
+                  error={errores.compra}
+                  onElegir={(v) => actualizar("compra", v)}
+                />
+              </form>
             </div>
 
-            {/* Abre WhatsApp con las respuestas (sin cuadro de texto libre) */}
+            {/* Envía el formulario de arriba (fuera del área con scroll para que siempre se vea) */}
             <div className="border-t border-white/10 bg-neutral-900/60 p-3">
               <button
-                type="button"
-                onClick={continuar}
-                disabled={!inicial || !compra}
-                className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-[#25D366] text-sm font-semibold text-white shadow-sm transition-all enabled:hover:bg-[#20bd5a] enabled:active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"
+                type="submit"
+                form={idFormulario}
+                disabled={ocupado}
+                aria-live="polite"
+                className={`inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl text-sm font-semibold text-white shadow-sm transition-all enabled:hover:bg-[#20bd5a] enabled:active:scale-[0.98] disabled:cursor-default ${
+                  estado === "enviado" ? "bg-[#1da851]" : "bg-[#25D366]"
+                }`}
               >
-                <IconoWhatsApp className="size-4" />
-                Continuar en WhatsApp
+                {estado === "enviando" ? (
+                  <>
+                    <Loader2 className="size-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />
+                    Registrando tus datos…
+                  </>
+                ) : estado === "enviado" ? (
+                  <>
+                    <Check className="size-4" strokeWidth={3} aria-hidden="true" />
+                    ¡Listo! Un asesor te contactará pronto
+                  </>
+                ) : (
+                  <>
+                    <UserPlus className="size-4" aria-hidden="true" />
+                    {estado === "error" ? "Intentar de nuevo" : "Registrarme ahora"}
+                  </>
+                )}
               </button>
+              {estado === "error" && (
+                <p role="alert" className="mt-2 text-center text-[11px] font-medium text-red-400">
+                  No pudimos registrar tus datos. Revisa tu conexión e inténtalo de nuevo.
+                </p>
+              )}
               <p className="mt-2 text-center text-[10px] text-neutral-400">
                 ⚡ Te atenderemos directamente por WhatsApp sin compromiso
               </p>

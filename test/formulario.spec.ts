@@ -32,8 +32,6 @@ import { POST } from "../src/app/api/formulario/route";
 import { agregarFila, COLUMNAS, filaLead } from "../src/server/hoja-calculo";
 import { celularPeru, enviarFormulario } from "../src/shared/lib/formulario";
 import { clientePotencial, rastrearContacto } from "../src/shared/lib/pixeles";
-import { plantillaDe } from "../src/shared/lib/plantillas";
-import { mensajeChat } from "../src/shared/lib/whatsapp";
 
 const { privateKey, publicKey } = generateKeyPairSync("rsa", {
   modulusLength: 2048,
@@ -181,6 +179,10 @@ describe("Formulario del hero → hoja de cálculo → «Cliente potencial»", (
     delete sinCompra.compra;
     const res4 = await POST(pedir(sinCompra));
     expect(res4.status).toBe(400);
+
+    // Solo los formularios de FORMULARIOS pueden escribir en la hoja.
+    const res5 = await POST(pedir({ ...VALIDO, origen: "header-agendar-visita" }));
+    expect(res5.status).toBe(400);
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
@@ -208,6 +210,8 @@ describe("Formulario del hero → hoja de cálculo → «Cliente potencial»", (
     expect(fila[COLUMNAS.indexOf("ID CAMPAÑA")]).toBe(VALIDO.campana);
     expect(fila[COLUMNAS.indexOf("FUENTE")]).toBe("meta");
     expect(fila[COLUMNAS.indexOf("ID REGISTRO")]).toBe(VALIDO.id);
+    // Sin `origen` en el cuerpo es el formulario del hero.
+    expect(fila[COLUMNAS.indexOf("ORIGEN")]).toBe("Landing · Formulario de solicitud de información de terreno");
 
     const insercion = state.consultas.find((c) => c.query.includes("INSERT INTO eventos"));
     expect(insercion?.query).toContain("'lead'");
@@ -215,6 +219,21 @@ describe("Formulario del hero → hoja de cálculo → «Cliente potencial»", (
     expect(insercion?.values).toContain("formulario-hero");
     expect(insercion?.values).toContainEqual({ inicial: "S/ 5,000 a S/ 10,000", compra: "De 1 a 3 meses" });
     expect(JSON.stringify(insercion?.values)).not.toMatch(/987654321|Ana Pérez/);
+  });
+
+  it("el formulario del chat flotante va a la misma hoja con su propio ORIGEN", async () => {
+    const fetchMock = mockGoogle();
+    const res = await POST(pedir({ ...VALIDO, origen: "chat-flotante-registro" }));
+    expect(res.status).toBe(200);
+
+    const [[, initAppend]] = llamadasA(fetchMock, "https://sheets.googleapis.com/");
+    const [fila] = JSON.parse(initAppend.body).values;
+    expect(fila[COLUMNAS.indexOf("ORIGEN")]).toBe("Landing · Chat flotante · formulario de registro");
+    expect(fila[COLUMNAS.indexOf("NOMBRE")]).toBe("Ana Pérez");
+
+    const insercion = state.consultas.find((c) => c.query.includes("INSERT INTO eventos"));
+    expect(insercion?.values).toContain("chat-flotante-registro");
+    expect(insercion?.values).not.toContain("formulario-hero");
   });
 
   it("si Google rechaza la fila responde 502 y no registra el lead", async () => {
@@ -245,12 +264,15 @@ describe("Formulario del hero → hoja de cálculo → «Cliente potencial»", (
     globalThis.fetch = vi.fn().mockResolvedValue(Response.json({ ok: false }, { status: 502 })) as any;
     await expect(enviarFormulario("reg-1", datos)).rejects.toThrow();
 
-    const fetchOk = vi.fn().mockResolvedValue(Response.json({ ok: true, id: "reg-1" }));
+    const fetchOk = vi.fn(async (_url: string, init: any) => Response.json({ ok: true, id: JSON.parse(init.body).id }));
     globalThis.fetch = fetchOk as any;
     await expect(enviarFormulario("reg-1", datos)).resolves.toBe("reg-1");
     const cuerpo = JSON.parse(fetchOk.mock.calls[0][1].body);
-    expect(cuerpo).toMatchObject({ id: "reg-1", ...datos, movil: true });
+    expect(cuerpo).toMatchObject({ id: "reg-1", origen: "formulario-hero", ...datos, movil: true });
     expect(typeof cuerpo.visitante).toBe("string");
+
+    await enviarFormulario("reg-2", datos, "chat-flotante-registro");
+    expect(JSON.parse(fetchOk.mock.calls[1][1].body)).toMatchObject({ id: "reg-2", origen: "chat-flotante-registro" });
   });
 
   it("clientePotencial envía Lead (Meta) y SubmitForm (TikTok) con el id del registro y sin datos personales", () => {
@@ -271,7 +293,7 @@ describe("Formulario del hero → hoja de cálculo → «Cliente potencial»", (
   });
 });
 
-describe("Chat flotante: mismo «Cliente potencial» al abrir WhatsApp (provisional)", () => {
+describe("Chat flotante: ya no abre WhatsApp ni envía conversión por clic", () => {
   let fbq: any;
   let ttq: any;
 
@@ -290,38 +312,30 @@ describe("Chat flotante: mismo «Cliente potencial» al abrir WhatsApp (provisio
     };
   });
 
-  it("el chat nuevo manda sus respuestas en el mensaje (reconocible por el CRM) y a los píxeles", () => {
-    const texto = mensajeChat("Más de S/ 10,000", "Este mes");
-    expect(texto).toBe("Hola, quiero información para comprar un lote en Finca Algarrobo. Inicial: Más de S/ 10,000. Quiero comprar: Este mes.");
-    expect(plantillaDe(`${texto} Mi nombre es: Ana`)).toBe("chat");
-
-    const intencion = rastrearContacto("chat-flotante-preguntas", texto, undefined, { inicial: "Más de S/ 10,000", compra: "Este mes" });
+  it("su «Cliente potencial» sale con el id del registro y el origen del chat", () => {
+    clientePotencial("chat-flotante-registro", "reg-chat", { inicial: "Más de S/ 10,000", compra: "Este mes" });
     expect(fbq).toHaveBeenCalledWith(
       "track",
       "Lead",
-      expect.objectContaining({ origen: "chat-flotante-preguntas", inicial: "Más de S/ 10,000", compra: "Este mes" }),
-      { eventID: intencion },
+      expect.objectContaining({ origen: "chat-flotante-registro", inicial: "Más de S/ 10,000", compra: "Este mes" }),
+      { eventID: "reg-chat" },
     );
-    const cuerpo = JSON.parse((globalThis.fetch as any).mock.calls[0][1].body);
-    expect(cuerpo).toMatchObject({ tipo: "contacto", origen: "chat-flotante-preguntas", plantilla: "chat", intencion_id: intencion });
+    expect(ttq.track).toHaveBeenCalledWith(
+      "SubmitForm",
+      expect.objectContaining({ description: "Chat flotante · formulario de registro" }),
+      { event_id: "reg-chat" },
+    );
   });
 
-  it.each(["chat-flotante-preguntas", "chat-flotante-visita", "chat-flotante-asesor", "chat-flotante-mensaje"] as const)(
-    "%s registra la intención y envía Lead / SubmitForm con el id de esa intención",
+  it.each(["chat-flotante-visita", "chat-flotante-asesor", "chat-flotante-mensaje", "sin-identificar"] as const)(
+    "un clic a WhatsApp (%s) registra solo la intención, sin Lead ni SubmitForm",
     (id) => {
       const intencion = rastrearContacto(id, "Hola, quiero agendar una visita a Finca Algarrobo este fin de semana.");
 
-      expect(fbq).toHaveBeenCalledTimes(1);
-      expect(fbq).toHaveBeenCalledWith("track", "Lead", expect.objectContaining({ origen: id }), { eventID: intencion });
-      expect(ttq.track).toHaveBeenCalledWith("SubmitForm", expect.any(Object), { event_id: intencion });
+      expect(fbq).not.toHaveBeenCalled();
+      expect(ttq.track).not.toHaveBeenCalled();
       const cuerpo = JSON.parse((globalThis.fetch as any).mock.calls[0][1].body);
       expect(cuerpo).toMatchObject({ tipo: "contacto", origen: id, intencion_id: intencion });
     },
   );
-
-  it("un enlace de WhatsApp que no es del chat sigue sin conversión", () => {
-    rastrearContacto("sin-identificar", "Hola, quiero más información del proyecto Finca Algarrobo.");
-    expect(fbq).not.toHaveBeenCalled();
-    expect(ttq.track).not.toHaveBeenCalled();
-  });
 });
