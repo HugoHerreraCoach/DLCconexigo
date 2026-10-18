@@ -63,7 +63,7 @@ export async function POST(req: Request) {
   const campanaId = [texto(cuerpo.campana_id), campana].find((v) => v && ID_CAMPANA.test(v)) ?? null;
   const nombreUrl = campana && !ID_CAMPANA.test(campana) ? campana : null;
 
-  const hoja = configHoja();
+  const hoja = configHoja(fuente);
   if (!hoja) {
     console.error("[formulario] faltan GOOGLE_SHEETS_ID, GOOGLE_SHEETS_CLIENT_EMAIL o GOOGLE_SHEETS_PRIVATE_KEY");
     return Response.json({ ok: false, error: "hoja no configurada" }, { status: 503 });

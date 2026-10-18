@@ -21,16 +21,22 @@ const SHEETS_API = "https://sheets.googleapis.com/v4/spreadsheets";
 const ALCANCE = "https://www.googleapis.com/auth/spreadsheets";
 const TIEMPO_MS = 8000;
 
+export const HOJA_TIKTOK = "LEADS TIKTOK";
+export const HOJA_META = "LEADS META";
+
 export type ConfigHoja = { id: string; hoja: string; correo: string; clave: string };
 
-/** null si falta alguna variable: el formulario responde 503 y no inventa un éxito. */
-export function configHoja(): ConfigHoja | null {
+/** null si falta alguna variable: el formulario responde 503 y no inventa un éxito.
+ *  Si no se fija GOOGLE_SHEETS_HOJA, elige la pestaña según la fuente:
+ *  «LEADS META» para tráfico de Meta y «LEADS TIKTOK» para el resto. */
+export function configHoja(fuente?: string): ConfigHoja | null {
   const id = process.env.GOOGLE_SHEETS_ID?.trim();
   const correo = process.env.GOOGLE_SHEETS_CLIENT_EMAIL?.trim();
   // Vercel y los .env suelen guardar la clave con "\n" literales y a veces entre comillas.
   const clave = process.env.GOOGLE_SHEETS_PRIVATE_KEY?.trim().replace(/^"|"$/g, "").replace(/\\n/g, "\n");
   if (!id || !correo || !clave) return null;
-  return { id, correo, clave, hoja: process.env.GOOGLE_SHEETS_HOJA?.trim() || "Hoja 1" };
+  const porFuente = fuente === "meta" ? HOJA_META : HOJA_TIKTOK;
+  return { id, correo, clave, hoja: process.env.GOOGLE_SHEETS_HOJA?.trim() || porFuente };
 }
 
 /* ── Fila ───────────────────────────────────────────────────────────────── */

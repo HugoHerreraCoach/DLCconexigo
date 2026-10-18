@@ -283,6 +283,7 @@ describe("Formulario del hero → hoja de cálculo → «Cliente potencial»", (
     const fila = filaEscrita(fetchMock);
     expect(fila[COLUMNAS.indexOf("NOMBRE DE CAMPAÑA")]).toBe("C_01_CONEXIPEMA_FINCAALGARROBO_LANDING");
     expect(fila[COLUMNAS.indexOf("FUENTE")]).toBe("tiktok");
+    expect(llamadasA(fetchMock, "https://sheets.googleapis.com/")[0][0]).toContain("'LEADS%20TIKTOK'!A1:append");
     expect(llamadasA(fetchMock, "https://graph.facebook.com/")).toHaveLength(0);
 
     // Solo el id (sin nombre en el enlace): queda el id. Un utm_id que no es numérico se descarta.
@@ -293,6 +294,10 @@ describe("Formulario del hero → hoja de cálculo → «Cliente potencial»", (
     const idRaro = mockGoogle();
     await POST(pedir({ ...VALIDO, id: "11111111-2222-4333-8444-888888888888", fuente: "otro", campana: undefined, campana_id: "abc" }));
     expect(filaEscrita(idRaro)[COLUMNAS.indexOf("NOMBRE DE CAMPAÑA")]).toBe("");
+
+    const metaHoja = mockGoogle();
+    await POST(pedir({ ...VALIDO, id: "11111111-2222-4333-8444-999999999999", fuente: "meta", campana: undefined }));
+    expect(llamadasA(metaHoja, "https://sheets.googleapis.com/")[0][0]).toContain("'LEADS%20META'!A1:append");
   });
 
   it("si Google rechaza la fila responde 502 y no registra el lead", async () => {
