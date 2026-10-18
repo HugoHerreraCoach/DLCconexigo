@@ -88,4 +88,5 @@ sin tocar la hoja.
   el área de mensajes se desplaza y el botón «Registrarme ahora» queda siempre visible abajo.
 - En producción, después de publicar: enviar un registro de prueba desde el chat y comprobar que en la hoja
   sale con su ORIGEN y que en Meta llega `Lead` con el mismo ID REGISTRO.
-- Siguen vigentes los pendientes de 0015 (cuenta de servicio, variables en Vercel y encabezados K–M).
+- Siguen vigentes los pendientes de 0015 (cuenta de servicio y variables en Vercel). Encabezados: ver
+  [0019](0019-campana-en-la-hoja.md) (solo K1 `ORIGEN` y L1 `FUENTE`).

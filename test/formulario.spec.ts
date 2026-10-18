@@ -39,14 +39,16 @@ const { privateKey, publicKey } = generateKeyPairSync("rsa", {
   publicKeyEncoding: { type: "spki", format: "pem" },
 });
 
-const FILA_OK = { updates: { updatedRange: "'Hoja 1'!A20:N20", updatedRows: 1 } };
+const FILA_OK = { updates: { updatedRange: "'Hoja 1'!A20:L20", updatedRows: 1 } };
 
-/** fetch falso: responde el token de Google y el append de Sheets según la URL. */
-function mockGoogle(append: unknown = FILA_OK, status = 200) {
+/** fetch falso: responde el token de Google y el append de Sheets según la URL
+ *  (y la API de Meta, si se le pasa `graph`). */
+function mockGoogle(append: unknown = FILA_OK, status = 200, graph?: (url: string) => Response) {
   const fetchMock = vi.fn(async (url: string | URL) => {
     const u = String(url);
     if (u.startsWith("https://oauth2.googleapis.com/token")) return Response.json({ access_token: "tok-123", expires_in: 3600 });
     if (u.startsWith("https://sheets.googleapis.com/")) return Response.json(append, { status });
+    if (graph && u.startsWith("https://graph.facebook.com/")) return graph(u);
     throw new Error(`url inesperada: ${u}`);
   });
   globalThis.fetch = fetchMock as any;
@@ -63,6 +65,7 @@ function configurarHoja() {
   // Como queda en Vercel: los saltos de línea escritos como \n.
   process.env.GOOGLE_SHEETS_PRIVATE_KEY = privateKey.replace(/\n/g, "\\n");
   delete process.env.GOOGLE_SHEETS_HOJA;
+  delete process.env.META_ACCESS_TOKEN;
 }
 
 const VALIDO = {
@@ -73,7 +76,8 @@ const VALIDO = {
   compra: "De 1 a 3 meses",
   visitante: "visitante-1",
   fuente: "meta",
-  campana: "C_04_CONEXIPEMA_FINCAALGARROBO_LANDING",
+  // Como llegan hoy los anuncios de Meta: utm_campaign = id de la campaña.
+  campana: "120253059641580494",
   movil: true,
 };
 
@@ -101,7 +105,7 @@ describe("Formulario del hero → hoja de cálculo → «Cliente potencial»", (
     expect(celularPeru(undefined)).toBeNull();
   });
 
-  it("filaLead sigue las columnas de la hoja (A–J como TikTok, K–N de la landing)", () => {
+  it("filaLead sigue las columnas de la hoja (A–J como TikTok, K–L de la landing)", () => {
     const fecha = new Date("2026-10-17T15:00:00Z");
     const fila = filaLead({
       id: "reg-1",
@@ -119,25 +123,26 @@ describe("Formulario del hero → hoja de cálculo → «Cliente potencial»", (
 
     expect(fila).toHaveLength(COLUMNAS.length);
     expect(COLUMNAS.slice(0, 10)).toEqual([
-      "ID CAMPAÑA", "FECHA", "NOMBRE", "NUMERO", "INICIAL", "TIEMPO DE COMPRA",
+      "NOMBRE DE CAMPAÑA", "FECHA", "NOMBRE", "NUMERO", "INICIAL", "TIEMPO DE COMPRA",
       "TikTok Lead ID", "TikTok Lead Status", "Lead creation time", "Lead update time",
     ]);
-    expect(col("ID CAMPAÑA")).toBe("");
+    expect(col("NOMBRE DE CAMPAÑA")).toBe("");
     expect(col("FECHA")).toBe(unix);
     expect(col("NUMERO")).toBe("+51 987 654 321");
     expect(col("Lead creation time")).toBe(unix);
-    expect(col("TikTok Lead ID")).toBe("");
+    // El id del registro de la landing va en «TikTok Lead ID».
+    expect(col("TikTok Lead ID")).toBe("reg-1");
+    expect(col("TikTok Lead Status")).toBe("");
     expect(col("INICIAL")).toBe("Más de S/ 10,000");
     expect(col("TIEMPO DE COMPRA")).toBe("Este mes");
-    expect(COLUMNAS.slice(10)).toEqual(["ORIGEN", "FUENTE", "ID REGISTRO"]);
-    expect(col("ID REGISTRO")).toBe("reg-1");
+    expect(COLUMNAS.slice(10)).toEqual(["ORIGEN", "FUENTE"]);
   });
 
   it("agregarFila firma el JWT de la cuenta de servicio y escribe en RAW al final de la pestaña", async () => {
     const fetchMock = mockGoogle();
     const correo = "sa-directa@proyecto.iam.gserviceaccount.com";
     const rango = await agregarFila({ id: "hoja-x", hoja: "Hoja 1", correo, clave: privateKey }, ["a", 1]);
-    expect(rango).toBe("'Hoja 1'!A20:N20");
+    expect(rango).toBe("'Hoja 1'!A20:L20");
 
     const [[, initToken]] = llamadasA(fetchMock, "https://oauth2.googleapis.com/token");
     const params = new URLSearchParams(String(initToken.body));
@@ -207,9 +212,10 @@ describe("Formulario del hero → hoja de cálculo → «Cliente potencial»", (
     expect(fila[COLUMNAS.indexOf("NUMERO")]).toBe("+51 987 654 321");
     expect(fila[COLUMNAS.indexOf("INICIAL")]).toBe("S/ 5,000 a S/ 10,000");
     expect(fila[COLUMNAS.indexOf("TIEMPO DE COMPRA")]).toBe("De 1 a 3 meses");
-    expect(fila[COLUMNAS.indexOf("ID CAMPAÑA")]).toBe(VALIDO.campana);
+    // Sin META_ACCESS_TOKEN no se busca el nombre: la fila igual se escribe, con el id de la campaña.
+    expect(fila[COLUMNAS.indexOf("NOMBRE DE CAMPAÑA")]).toBe(VALIDO.campana);
     expect(fila[COLUMNAS.indexOf("FUENTE")]).toBe("meta");
-    expect(fila[COLUMNAS.indexOf("ID REGISTRO")]).toBe(VALIDO.id);
+    expect(fila[COLUMNAS.indexOf("TikTok Lead ID")]).toBe(VALIDO.id);
     // Sin `origen` en el cuerpo es el formulario del hero.
     expect(fila[COLUMNAS.indexOf("ORIGEN")]).toBe("Landing · Formulario de solicitud de información de terreno");
 
@@ -217,6 +223,8 @@ describe("Formulario del hero → hoja de cálculo → «Cliente potencial»", (
     expect(insercion?.query).toContain("'lead'");
     expect(insercion?.values).toContain(VALIDO.id);
     expect(insercion?.values).toContain("formulario-hero");
+    // El panel cruza `campana` con el id de las campañas de Meta: se guarda tal cual llegó.
+    expect(insercion?.values).toContain(VALIDO.campana);
     expect(insercion?.values).toContainEqual({ inicial: "S/ 5,000 a S/ 10,000", compra: "De 1 a 3 meses" });
     expect(JSON.stringify(insercion?.values)).not.toMatch(/987654321|Ana Pérez/);
   });
@@ -234,6 +242,57 @@ describe("Formulario del hero → hoja de cálculo → «Cliente potencial»", (
     const insercion = state.consultas.find((c) => c.query.includes("INSERT INTO eventos"));
     expect(insercion?.values).toContain("chat-flotante-registro");
     expect(insercion?.values).not.toContain("formulario-hero");
+  });
+
+  const filaEscrita = (fetchMock: any) => JSON.parse(llamadasA(fetchMock, "https://sheets.googleapis.com/")[0][1].body).values[0];
+
+  it("Meta: con el id de utm_campaign la fila lleva el NOMBRE de la campaña (pedido una sola vez)", async () => {
+    process.env.META_ACCESS_TOKEN = "token-meta";
+    const graph = vi.fn((url: string) => {
+      expect(url).toContain("/120253059641580001?fields=name,account_id");
+      return Response.json({ id: "120253059641580001", name: "C_04_CONEXIPEMA_FINCAALGARROBO_LANDING", account_id: "1107857613612617" });
+    });
+    const fetchMock = mockGoogle(FILA_OK, 200, graph);
+
+    expect((await POST(pedir({ ...VALIDO, campana: "120253059641580001" }))).status).toBe(200);
+    expect(filaEscrita(fetchMock)[COLUMNAS.indexOf("NOMBRE DE CAMPAÑA")]).toBe("C_04_CONEXIPEMA_FINCAALGARROBO_LANDING");
+
+    // El siguiente registro de la misma campaña no vuelve a llamar a Meta.
+    await POST(pedir({ ...VALIDO, id: "11111111-2222-4333-8444-666666666666", campana: "120253059641580001" }));
+    expect(graph).toHaveBeenCalledTimes(1);
+  });
+
+  it("Meta: si su API falla o la campaña es de otra cuenta, la fila igual se escribe, con el id de la campaña", async () => {
+    process.env.META_ACCESS_TOKEN = "token-meta";
+    const caida = mockGoogle(FILA_OK, 200, () => Response.json({ error: { message: "Session has expired" } }, { status: 400 }));
+    expect((await POST(pedir({ ...VALIDO, campana: "120253059641580002" }))).status).toBe(200);
+    expect(filaEscrita(caida)[COLUMNAS.indexOf("NOMBRE DE CAMPAÑA")]).toBe("120253059641580002");
+
+    const ajena = mockGoogle(FILA_OK, 200, () => Response.json({ id: "120253059641580003", name: "OTRA CUENTA", account_id: "999" }));
+    expect((await POST(pedir({ ...VALIDO, campana: "120253059641580003" }))).status).toBe(200);
+    expect(filaEscrita(ajena)[COLUMNAS.indexOf("NOMBRE DE CAMPAÑA")]).toBe("120253059641580003");
+  });
+
+  it("TikTok: el nombre llega en utm_campaign (y el id en utm_id), sin llamar a ninguna API", async () => {
+    process.env.META_ACCESS_TOKEN = "token-meta";
+    const fetchMock = mockGoogle();
+    const res = await POST(
+      pedir({ ...VALIDO, fuente: "tiktok", campana: "C_01_CONEXIPEMA_FINCAALGARROBO_LANDING", campana_id: "1877891583735969" }),
+    );
+    expect(res.status).toBe(200);
+    const fila = filaEscrita(fetchMock);
+    expect(fila[COLUMNAS.indexOf("NOMBRE DE CAMPAÑA")]).toBe("C_01_CONEXIPEMA_FINCAALGARROBO_LANDING");
+    expect(fila[COLUMNAS.indexOf("FUENTE")]).toBe("tiktok");
+    expect(llamadasA(fetchMock, "https://graph.facebook.com/")).toHaveLength(0);
+
+    // Solo el id (sin nombre en el enlace): queda el id. Un utm_id que no es numérico se descarta.
+    const soloId = mockGoogle();
+    await POST(pedir({ ...VALIDO, id: "11111111-2222-4333-8444-777777777777", fuente: "tiktok", campana: undefined, campana_id: "1877891583735969" }));
+    expect(filaEscrita(soloId)[COLUMNAS.indexOf("NOMBRE DE CAMPAÑA")]).toBe("1877891583735969");
+
+    const idRaro = mockGoogle();
+    await POST(pedir({ ...VALIDO, id: "11111111-2222-4333-8444-888888888888", fuente: "otro", campana: undefined, campana_id: "abc" }));
+    expect(filaEscrita(idRaro)[COLUMNAS.indexOf("NOMBRE DE CAMPAÑA")]).toBe("");
   });
 
   it("si Google rechaza la fila responde 502 y no registra el lead", async () => {
@@ -273,6 +332,30 @@ describe("Formulario del hero → hoja de cálculo → «Cliente potencial»", (
 
     await enviarFormulario("reg-2", datos, "chat-flotante-registro");
     expect(JSON.parse(fetchOk.mock.calls[1][1].body)).toMatchObject({ id: "reg-2", origen: "chat-flotante-registro" });
+  });
+
+  it("enviarFormulario manda la campaña del enlace del anuncio (utm_campaign y utm_id)", async () => {
+    (globalThis as any).window = {
+      localStorage: { getItem: vi.fn(), setItem: vi.fn() },
+      sessionStorage: { getItem: vi.fn(), setItem: vi.fn() },
+      matchMedia: vi.fn().mockReturnValue({ matches: false }),
+    };
+    vi.stubGlobal("location", {
+      search: "?utm_source=tiktok&utm_medium=paid&utm_campaign=C_01_CONEXIPEMA_FINCAALGARROBO_LANDING&utm_id=1877891583735969&ttclid=E.C.P.abc",
+      hostname: "grupodlc.conexigo.com",
+    });
+    const fetchOk = vi.fn(async (_url: string, init: any) => Response.json({ ok: true, id: JSON.parse(init.body).id }));
+    globalThis.fetch = fetchOk as any;
+    try {
+      await enviarFormulario("reg-3", { nombre: "Ana Pérez", celular: "987654321", inicial: "Pago al contado", compra: "Este mes" });
+    } finally {
+      vi.unstubAllGlobals();
+    }
+    expect(JSON.parse(fetchOk.mock.calls[0][1].body)).toMatchObject({
+      fuente: "tiktok",
+      campana: "C_01_CONEXIPEMA_FINCAALGARROBO_LANDING",
+      campana_id: "1877891583735969",
+    });
   });
 
   it("clientePotencial envía Lead (Meta) y SubmitForm (TikTok) con el id del registro y sin datos personales", () => {

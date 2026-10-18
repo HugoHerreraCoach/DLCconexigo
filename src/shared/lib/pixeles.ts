@@ -29,7 +29,7 @@ const CONTENIDO = { content_name: "Finca Algarrobo", content_category: "Terrenos
 
 /** «Cliente potencial» en los píxeles: Meta `Lead` y TikTok `SubmitForm` (que
  *  TikTok muestra como «Lead»). Llamar SOLO con la fila ya confirmada en la
- *  hoja. `registroId` es el id del envío (columna ID REGISTRO de la hoja) y va
+ *  hoja. `registroId` es el id del envío (columna «TikTok Lead ID» de la hoja) y va
  *  como id del evento, para deduplicar si luego se envía también desde el servidor.
  *  Sin nombre ni celular: los píxeles no reciben datos personales. */
 export function clientePotencial(id: IdRastro, registroId: string, datos?: Record<string, string>) {

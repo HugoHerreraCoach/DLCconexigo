@@ -6,7 +6,10 @@ export type TipoEvento = "visita" | "contacto" | "formulario_preparado" | "lead"
 
 export type Fuente = "meta" | "tiktok" | "google" | "otro" | "directo";
 
-type Atribucion = { fuente: Fuente; campana: string | null };
+/** `campana` = utm_campaign (los anuncios de Meta mandan el id de la campaña;
+ *  los de TikTok, el nombre) y `campana_id` = utm_id. Las sesiones guardadas
+ *  antes de existir `campana_id` no lo traen. */
+type Atribucion = { fuente: Fuente; campana: string | null; campana_id?: string | null };
 
 const CLAVE_VISITANTE = "dlc_v";
 const CLAVE_ATRIBUCION = "dlc_a";
@@ -64,7 +67,7 @@ function atribucion(): Atribucion {
   else if (p.has("gclid") || utm.includes("google") || ref.includes("google.")) fuente = "google";
   else if (utm || (ref && ref !== host)) fuente = "otro";
 
-  const nueva = { fuente, campana: p.get("utm_campaign") };
+  const nueva = { fuente, campana: p.get("utm_campaign"), campana_id: p.get("utm_id") };
   guardar(window.sessionStorage, CLAVE_ATRIBUCION, JSON.stringify(nueva));
   return nueva;
 }

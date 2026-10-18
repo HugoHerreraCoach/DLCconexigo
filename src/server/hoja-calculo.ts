@@ -6,7 +6,7 @@ import { createSign } from "node:crypto";
    hoja recibe los formularios instantáneos de TikTok, así que las columnas A–J
    siguen su formato (FECHA en segundos Unix, NUMERO como «+51 9XX XXX XXX»;
    INICIAL y TIEMPO DE COMPRA son las mismas preguntas) y lo propio de la
-   landing va de la K a la M (ver COLUMNAS).
+   landing va en la K y la L (ver COLUMNAS).
 
    Acceso con una cuenta de servicio de Google Cloud (API de Google Sheets
    activada y la hoja compartida con su correo como Editor):
@@ -36,9 +36,10 @@ export function configHoja(): ConfigHoja | null {
 /* ── Fila ───────────────────────────────────────────────────────────────── */
 
 /** Encabezados de la fila 1. A–J ya existen en la hoja (formato de TikTok);
- *  K–M son de la landing y se escriben a mano una sola vez. */
+ *  K–L son de la landing y se escriben a mano una sola vez. La landing usa
+ *  «TikTok Lead ID» para su propio id de registro. */
 export const COLUMNAS = [
-  "ID CAMPAÑA",
+  "NOMBRE DE CAMPAÑA",
   "FECHA",
   "NOMBRE",
   "NUMERO",
@@ -50,11 +51,10 @@ export const COLUMNAS = [
   "Lead update time",
   "ORIGEN",
   "FUENTE",
-  "ID REGISTRO",
 ] as const;
 
 export type LeadHoja = {
-  /** Id del envío: también es el `eventID` del píxel. */
+  /** Id del envío: va en «TikTok Lead ID» y también es el `eventID` del píxel. */
   id: string;
   fecha: Date;
   nombre: string;
@@ -64,6 +64,7 @@ export type LeadHoja = {
   /** Cuándo quiere comprar (TIEMPOS_COMPRA). */
   compra: string;
   fuente: string;
+  /** Nombre de la campaña de Meta o TikTok; si no se conoce, su id. */
   campana: string | null;
   origen: string;
 };
@@ -74,19 +75,18 @@ const numeroHoja = (celular: string) => `+51 ${celular.slice(0, 3)} ${celular.sl
 export function filaLead(l: LeadHoja): (string | number)[] {
   const unix = Math.floor(l.fecha.getTime() / 1000);
   const valores: Record<(typeof COLUMNAS)[number], string | number> = {
-    "ID CAMPAÑA": l.campana ?? "",
+    "NOMBRE DE CAMPAÑA": l.campana ?? "",
     FECHA: unix,
     NOMBRE: l.nombre,
     NUMERO: numeroHoja(l.celular),
     INICIAL: l.inicial,
     "TIEMPO DE COMPRA": l.compra,
-    "TikTok Lead ID": "",
+    "TikTok Lead ID": l.id,
     "TikTok Lead Status": "",
     "Lead creation time": unix,
     "Lead update time": "",
     ORIGEN: l.origen,
     FUENTE: l.fuente,
-    "ID REGISTRO": l.id,
   };
   return COLUMNAS.map((c) => valores[c]);
 }
@@ -122,7 +122,7 @@ async function tokenAcceso(c: ConfigHoja): Promise<string> {
 }
 
 /** Agrega la fila al final de la tabla de la pestaña y devuelve el rango
- *  escrito (p. ej. «'Hoja 1'!A20:N20»). Lanza si Google no confirma UNA fila.
+ *  escrito (p. ej. «'Hoja 1'!A20:L20»). Lanza si Google no confirma UNA fila.
  *  RAW: lo que escribe el visitante nunca se interpreta como fórmula. */
 export async function agregarFila(c: ConfigHoja, fila: (string | number)[]): Promise<string> {
   const rango = encodeURIComponent(`'${c.hoja.replace(/'/g, "''")}'!A1`);

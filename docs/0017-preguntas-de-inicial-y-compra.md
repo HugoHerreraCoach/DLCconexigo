@@ -106,6 +106,7 @@ faltaba, inventaba «Casa de campo». Ahora la columna se llama **«Compra / int
 ## Pendientes
 
 - **Encabezados de la hoja (dueño):** K1 `ORIGEN`, L1 `FUENTE`, M1 `ID REGISTRO`. Reemplazan a los K–N de 0015.
+  *(Desde [0019](0019-campana-en-la-hoja.md): solo K1 y L1; el ID REGISTRO va en «TikTok Lead ID».)*
 - Las opciones de la landing están escritas como pidió el usuario y no coinciden letra por letra con las que deja
   TikTok en la hoja: «S/ 5,000 a S/ 10,000» frente a «S/5,000 a S/10,000», «Más de S/ 10,000» frente a «Más de
   S/10,000» y «De 1 a 3 meses» frente a «En 1 a 3 meses». Si la hoja se filtra o se procesa por esos textos,

@@ -3,6 +3,7 @@ import { RASTROS } from "@/config/rastros";
 import { sql } from "@/server/db";
 import { agregarFila, configHoja, filaLead } from "@/server/hoja-calculo";
 import { huellaNombre, huellaTelefono } from "@/server/nombre-huella";
+import { nombreCampanaMeta } from "@/server/plataformas";
 import { celularPeru, FORMULARIOS } from "@/shared/lib/formulario";
 
 /* Formularios de registro (hero y chat flotante) → hoja de cálculo de leads
@@ -15,9 +16,13 @@ import { celularPeru, FORMULARIOS } from "@/shared/lib/formulario";
    ────────
    POST /api/formulario
    Cuerpo  { "id": "<uuid del envío>", "origen", "nombre", "celular", "inicial", "compra",
-             "visitante", "fuente", "campana", "movil" }
+             "visitante", "fuente", "campana", "campana_id", "movil" }
            · origen ∈ FORMULARIOS (src/shared/lib/formulario.ts); si falta, "formulario-hero"
            · inicial ∈ INICIALES y compra ∈ TIEMPOS_COMPRA (src/config/contenido.ts)
+           · campana = utm_campaign y campana_id = utm_id de la visita. A la columna
+             «NOMBRE DE CAMPAÑA» va el nombre de la campaña (o su id, si no se conoce): Meta
+             manda el id en utm_campaign y el nombre se pide a su API; TikTok manda el nombre
+             en utm_campaign y el id en utm_id (macros __CAMPAIGN_NAME__ y __CAMPAIGN_ID__).
    200     { "ok": true, "id": "<id>" }        ← la fila quedó en la hoja (o ya estaba: mismo id)
    400 datos inválidos · 502 Google no confirmó la fila · 503 hoja sin configurar
    El panel lo cuenta como lead en `eventos` (tipo 'lead'), sin nombre ni celular en claro. */
@@ -25,6 +30,8 @@ import { celularPeru, FORMULARIOS } from "@/shared/lib/formulario";
 const FUENTES = new Set(["meta", "tiktok", "google", "otro", "directo"]);
 const BOTS = /bot|crawl|spider|slurp|headless|lighthouse|preview|facebookexternalhit/i;
 const ID = /^[A-Za-z0-9_-]{8,64}$/;
+/** Los ids de campaña de Meta y de TikTok son numéricos (18 y 16 dígitos). */
+const ID_CAMPANA = /^\d{6,25}$/;
 
 const texto = (v: unknown, max = 80) => (typeof v === "string" && v.trim() ? v.trim().replace(/\s+/g, " ").slice(0, max) : null);
 const deLista = <T extends string>(lista: readonly T[], v: unknown) => lista.find((x) => x === v) ?? null;
@@ -53,12 +60,18 @@ export async function POST(req: Request) {
 
   const fuente = FUENTES.has(String(cuerpo.fuente)) ? String(cuerpo.fuente) : "directo";
   const campana = texto(cuerpo.campana);
+  const campanaId = [texto(cuerpo.campana_id), campana].find((v) => v && ID_CAMPANA.test(v)) ?? null;
+  const nombreUrl = campana && !ID_CAMPANA.test(campana) ? campana : null;
 
   const hoja = configHoja();
   if (!hoja) {
     console.error("[formulario] faltan GOOGLE_SHEETS_ID, GOOGLE_SHEETS_CLIENT_EMAIL o GOOGLE_SHEETS_PRIVATE_KEY");
     return Response.json({ ok: false, error: "hoja no configurada" }, { status: 503 });
   }
+
+  // Se pide mientras se revisa si el envío es repetido; nunca falla (null si Meta no responde).
+  const nombrePendiente =
+    nombreUrl === null && fuente === "meta" && campanaId ? nombreCampanaMeta(campanaId) : Promise.resolve(nombreUrl);
 
   // Reintento del mismo envío (se perdió la respuesta): la fila ya está en la hoja.
   if (sql) {
@@ -73,7 +86,17 @@ export async function POST(req: Request) {
   try {
     await agregarFila(
       hoja,
-      filaLead({ id, fecha: new Date(), nombre, celular, inicial, compra, fuente, campana, origen: `Landing · ${RASTROS[origen].nombre}` }),
+      filaLead({
+        id,
+        fecha: new Date(),
+        nombre,
+        celular,
+        inicial,
+        compra,
+        fuente,
+        campana: (await nombrePendiente) ?? campanaId,
+        origen: `Landing · ${RASTROS[origen].nombre}`,
+      }),
     );
   } catch (e) {
     console.error("[formulario] no se pudo agregar la fila a la hoja", e);

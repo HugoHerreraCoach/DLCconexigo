@@ -200,6 +200,37 @@ async function graph<T extends { error?: { message?: string } }>(ruta: string, t
   return json;
 }
 
+/* Nombre de una campaña de Meta para la hoja de leads. Los anuncios de Meta
+   llevan a la landing con utm_campaign = id de la campaña, sin el nombre. */
+
+const NOMBRES_TTL_MS = 3_600_000;
+const nombresCampana = new Map<string, { nombre: string | null; vence: number }>();
+
+/** null si no hay token, el id no es una campaña de la cuenta o Meta no
+ *  responde en 2,5 s: el formulario nunca falla ni espera más por esto. */
+export async function nombreCampanaMeta(id: string): Promise<string | null> {
+  const token = process.env.META_ACCESS_TOKEN;
+  if (!token || !/^\d{6,25}$/.test(id)) return null;
+  const guardado = nombresCampana.get(id);
+  if (guardado && guardado.vence > Date.now()) return guardado.nombre;
+
+  try {
+    const res = await fetch(`${META_API}/${id}?fields=name,account_id&access_token=${encodeURIComponent(token)}`, {
+      cache: "no-store",
+      signal: AbortSignal.timeout(2500),
+    });
+    // Token vencido, límite de uso, id inexistente…: no se guarda y se reintenta en el próximo registro.
+    if (!res.ok) return null;
+    const json = (await res.json()) as { name?: string; account_id?: string };
+    const nombre = json.name && `act_${json.account_id}` === META_CUENTA ? json.name : null;
+    if (nombresCampana.size > 200) nombresCampana.clear();
+    nombresCampana.set(id, { nombre, vence: Date.now() + NOMBRES_TTL_MS });
+    return nombre;
+  } catch {
+    return null;
+  }
+}
+
 export type ParametroRango = number | { desde: string; hasta: string };
 
 export async function campanasMeta(rangoParam: ParametroRango): Promise<ResultadoCampanasMeta> {

@@ -36,6 +36,10 @@ abriendo WhatsApp y registran solo la intención (`contacto`), sin conversión.
 
 ### Fila que se escribe
 
+> **Actualizado:** las columnas de la landing pasaron a K–M en [0017](0017-preguntas-de-inicial-y-compra.md) y,
+> desde [0019](0019-campana-en-la-hoja.md), son solo K ORIGEN y L FUENTE: la A («NOMBRE DE CAMPAÑA») lleva el
+> nombre de la campaña y el ID REGISTRO va en «TikTok Lead ID».
+
 La hoja ya recibe los formularios instantáneos de TikTok, así que las columnas A–J usan su mismo
 formato y lo propio de la landing va de la K a la N:
 
