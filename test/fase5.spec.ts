@@ -61,7 +61,10 @@ describe("Fase 5 — Paneles, contratos y calidad de métricas (Landing)", () =>
                   spend: "75.00",
                   impressions: "1500",
                   reach: "1200",
-                  actions: [{ action_type: "offsite_conversion.fb_pixel_lead", value: "10" }],
+                  actions: [
+                    { action_type: "offsite_conversion.fb_pixel_lead", value: "10" },
+                    { action_type: "offsite_conversion.fb_pixel_complete_registration", value: "3" },
+                  ],
                 },
               ],
             }),
@@ -83,6 +86,8 @@ describe("Fase 5 — Paneles, contratos y calidad de métricas (Landing)", () =>
 
           const campanaConPresupuesto = resultado.filas.find((f) => f.id === "222");
           expect(campanaConPresupuesto?.presupuestoDiario).toBe(100);
+          // Píxel de la landing: CompleteRegistration (0021) + el Lead anterior
+          expect(campanaConPresupuesto?.clicsWhatsApp).toBe(13);
 
           // Presupuesto total consolidado suma solo los válidos (100) y no añade valores ficticios
           expect(resultado.totales.presupuestoDiarioTotal).toBe(100);

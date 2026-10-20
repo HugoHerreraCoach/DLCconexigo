@@ -69,7 +69,7 @@ export type FilaCampanaMeta = {
   conversaciones: number;
   /** Total de leads sumando formularios y conversaciones. */
   leadsTotales: number;
-  /** Lead del píxel: clics a WhatsApp desde la landing (no son mensajes). */
+  /** Conversión del píxel de la landing (`CompleteRegistration`, antes `Lead`; no son mensajes). */
   clicsWhatsApp: number;
   /** Costo por lead (gasto / leadsTotales) o null si no hay leads. */
   costoPorLead: number | null;
@@ -157,10 +157,10 @@ type RespuestaCampanas = {
 };
 type RespuestaCuenta = { currency?: string; error?: { message?: string } };
 
-/* Ojo: "lead" y "offsite_conversion.fb_pixel_lead" son el evento Lead del píxel,
-   que la landing dispara al hacer CLIC a WhatsApp (no es un mensaje recibido).
-   Por eso aquí solo cuentan los formularios instantáneos de Meta, y los clics van
-   aparte en extraerClicsWhatsApp. Ver docs/0014. */
+/* Ojo: "lead" incluye "offsite_conversion.fb_pixel_lead", el evento del píxel de
+   la landing (no es un mensaje recibido; desde 0021 la landing envía
+   `CompleteRegistration` en su lugar). Por eso aquí solo cuentan los formularios
+   instantáneos de Meta, y el píxel va aparte en extraerClicsWhatsApp. Ver docs/0014. */
 function extraerLeadsFormularios(actions?: { action_type: string; value: string }[]): number {
   if (!actions) return 0;
   const tipos = ["onsite_conversion.lead_grouped", "leadgen_grouped"];
@@ -171,9 +171,18 @@ function extraerLeadsFormularios(actions?: { action_type: string; value: string 
   return 0;
 }
 
-/** Evento Lead del píxel = clics a WhatsApp desde la landing (no mensajes reales). */
+/** Conversión del píxel de la landing. Desde 0021 es `CompleteRegistration`; se
+ *  suma el `Lead` anterior para que los rangos que cruzan el cambio no lo pierdan
+ *  (la landing envía uno u otro, nunca los dos). */
+const ACCIONES_PIXEL_LANDING = [
+  "offsite_conversion.fb_pixel_complete_registration",
+  "offsite_conversion.fb_pixel_lead",
+];
+
 function extraerClicsWhatsApp(actions?: { action_type: string; value: string }[]): number {
-  return Number(actions?.find((x) => x.action_type === "offsite_conversion.fb_pixel_lead")?.value ?? 0);
+  return (actions ?? [])
+    .filter((x) => ACCIONES_PIXEL_LANDING.includes(x.action_type))
+    .reduce((acc, x) => acc + Number(x.value), 0);
 }
 
 function extraerConversaciones(actions?: { action_type: string; value: string }[]): number {
@@ -440,7 +449,8 @@ type RespuestaTikTok = {
 /** TikTok devuelve tipos de optimización (ON_WEB_…) en vez del nombre del evento. */
 function nombreTikTok(tipo: string) {
   const t = tipo.toUpperCase();
-  if (t.includes("FORM")) return "SubmitForm (formulario)";
+  if (t.includes("REGIST")) return "CompleteRegistration (registro)";
+  if (t.includes("FORM")) return "SubmitForm (formulario, en desuso)";
   if (t.includes("CONTACT") || t.includes("CONSULT")) return "Contact (WhatsApp)";
   if (t.includes("PAGE") || t.includes("VIEW") || t.includes("LANDING")) return `Page view (${tipo})`;
   return tipo;

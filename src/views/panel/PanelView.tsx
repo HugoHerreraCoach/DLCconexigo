@@ -400,7 +400,7 @@ export function PanelView({
                     />
                   ) : (
                     <p className="text-xs text-neutral-400">
-                      {metaOk ? `Meta los cuenta como «Lead»: ${num.format(meta.totales.clicsWhatsApp)}` : `${totalesPropio.leads} formularios · ${totalesPropio.contactos} clics`}
+                      {metaOk ? `Meta los cuenta como «Registro completado» (antes «Lead»): ${num.format(meta.totales.clicsWhatsApp)}` : `${totalesPropio.leads} formularios · ${totalesPropio.contactos} clics`}
                     </p>
                   )
                 }
@@ -815,7 +815,7 @@ export function PanelView({
                 <span>Estado de la plataforma TikTok:</span>
               </p>
               <p className="leading-relaxed text-neutral-400">
-                Actualmente hay <strong>0 métricas en TikTok</strong> porque las campañas aún no han comenzado. El Píxel de TikTok ya se encuentra instalado y enviando eventos de <code>SubmitForm</code>, <code>Contact</code> y <code>Lead</code> desde la landing. En cuanto el equipo active los anuncios en TikTok Ads, los costos por prospecto y creativos se desglosarán automáticamente en esta pestaña.
+                Actualmente hay <strong>0 métricas en TikTok</strong> porque las campañas aún no han comenzado. El Píxel de TikTok ya se encuentra instalado y envía <code>CompleteRegistration</code> desde la landing cuando un registro queda guardado en la hoja. En cuanto el equipo active los anuncios en TikTok Ads, los costos por prospecto y creativos se desglosarán automáticamente en esta pestaña.
               </p>
             </div>
           </div>

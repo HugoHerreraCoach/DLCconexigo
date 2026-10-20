@@ -363,7 +363,7 @@ describe("Formulario del hero → hoja de cálculo → «Cliente potencial»", (
     });
   });
 
-  it("clientePotencial envía Lead (Meta) y SubmitForm (TikTok) con el id del registro y sin datos personales", () => {
+  it("clientePotencial envía CompleteRegistration (Meta y TikTok) con el id del registro y sin datos personales", () => {
     const fbq = vi.fn();
     const ttq = { track: vi.fn() };
     (globalThis as any).window = { fbq, ttq };
@@ -372,12 +372,25 @@ describe("Formulario del hero → hoja de cálculo → «Cliente potencial»", (
 
     expect(fbq).toHaveBeenCalledWith(
       "track",
-      "Lead",
+      "CompleteRegistration",
       expect.objectContaining({ origen: "formulario-hero", compra: "Este mes", content_name: "Finca Algarrobo" }),
       { eventID: "reg-1" },
     );
-    expect(ttq.track).toHaveBeenCalledWith("SubmitForm", expect.objectContaining({ content_name: "Finca Algarrobo" }), { event_id: "reg-1" });
+    expect(ttq.track).toHaveBeenCalledWith("CompleteRegistration", expect.objectContaining({ content_name: "Finca Algarrobo" }), { event_id: "reg-1" });
     expect(JSON.stringify(fbq.mock.calls)).not.toMatch(/987654321|Ana/);
+  });
+
+  it("clientePotencial envía un solo evento por píxel y ya no envía Lead ni SubmitForm", () => {
+    const fbq = vi.fn();
+    const ttq = { track: vi.fn() };
+    (globalThis as any).window = { fbq, ttq };
+
+    clientePotencial("formulario-hero", "reg-2", { inicial: "Pago al contado", compra: "Este mes" });
+
+    expect(fbq).toHaveBeenCalledTimes(1);
+    expect(ttq.track).toHaveBeenCalledTimes(1);
+    expect(fbq).not.toHaveBeenCalledWith("track", "Lead", expect.anything(), expect.anything());
+    expect(ttq.track).not.toHaveBeenCalledWith("SubmitForm", expect.anything(), expect.anything());
   });
 });
 
@@ -404,19 +417,19 @@ describe("Chat flotante: ya no abre WhatsApp ni envía conversión por clic", ()
     clientePotencial("chat-flotante-registro", "reg-chat", { inicial: "Más de S/ 10,000", compra: "Este mes" });
     expect(fbq).toHaveBeenCalledWith(
       "track",
-      "Lead",
+      "CompleteRegistration",
       expect.objectContaining({ origen: "chat-flotante-registro", inicial: "Más de S/ 10,000", compra: "Este mes" }),
       { eventID: "reg-chat" },
     );
     expect(ttq.track).toHaveBeenCalledWith(
-      "SubmitForm",
+      "CompleteRegistration",
       expect.objectContaining({ description: "Chat flotante · formulario de registro" }),
       { event_id: "reg-chat" },
     );
   });
 
   it.each(["chat-flotante-visita", "chat-flotante-asesor", "chat-flotante-mensaje", "sin-identificar"] as const)(
-    "un clic a WhatsApp (%s) registra solo la intención, sin Lead ni SubmitForm",
+    "un clic a WhatsApp (%s) registra solo la intención, sin evento en los píxeles",
     (id) => {
       const intencion = rastrearContacto(id, "Hola, quiero agendar una visita a Finca Algarrobo este fin de semana.");
 

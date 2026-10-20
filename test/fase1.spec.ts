@@ -32,7 +32,8 @@ describe("Fase 1: Retirar conversiones prematuras y registrar intenciones", () =
       matchMedia: vi.fn().mockReturnValue({ matches: false }),
     };
 
-    // Al interactuar con botones o formularios, NO se debe disparar fbq Lead ni ttq SubmitForm
+    // Al interactuar con botones o formularios, NO se debe disparar ningún evento de conversión
+    // (ni CompleteRegistration, ni los antiguos Lead / SubmitForm)
     rastrearContacto("whatsapp-flotante", "Hola, quiero más información del proyecto Finca Algarrobo.");
     rastrearLead("formulario-hero", {
       motivo: "Inversión",
@@ -44,10 +45,9 @@ describe("Fase 1: Retirar conversiones prematuras y registrar intenciones", () =
     });
 
 
-    // Cero llamadas a Lead en Meta
-    expect(fbqMock).not.toHaveBeenCalledWith("track", "Lead", expect.anything());
-    // Cero llamadas a SubmitForm en TikTok
-    expect(ttqMock.track).not.toHaveBeenCalledWith("SubmitForm", expect.anything());
+    // Cero llamadas a los píxeles de Meta y TikTok
+    expect(fbqMock).not.toHaveBeenCalled();
+    expect(ttqMock.track).not.toHaveBeenCalled();
   });
 
   it("F1.2: Formulario válido genera intención formulario_preparado con huella telefónica", () => {
