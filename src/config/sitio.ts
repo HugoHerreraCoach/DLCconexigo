@@ -11,9 +11,10 @@ export const SITIO = {
   marca: "Grupo DLC",
   proyecto: "Finca Algarrobo",
   url: process.env.NEXT_PUBLIC_SITE_URL ?? "https://grupodlc.pe",
-  /** Número de WhatsApp de ventas (976 330 336), formato internacional sin
-   *  "+" ni espacios. Se puede sobrescribir con NEXT_PUBLIC_WHATSAPP. */
-  whatsapp: process.env.NEXT_PUBLIC_WHATSAPP ?? "51976330336",
+  /** Número de WhatsApp de ventas (965 121 865; antes 976 330 336, hasta el
+   *  2026-10-20), formato internacional sin "+" ni espacios. Se puede
+   *  sobrescribir con NEXT_PUBLIC_WHATSAPP. */
+  whatsapp: process.env.NEXT_PUBLIC_WHATSAPP ?? "51965121865",
   ciudad: "Chiclayo",
   direccion: "Carretera a Ferreñafe, Capote — Chiclayo, Lambayeque",
   mapa: "https://www.google.com/maps/search/?api=1&query=Capote+Carretera+a+Ferre%C3%B1afe+Chiclayo",
