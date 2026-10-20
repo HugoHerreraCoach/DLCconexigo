@@ -25,6 +25,8 @@ export const normalizar = (s: string) =>
     .trim();
 
 const NOMBRE = /mi nombre es\s*:?\s*(.+)$/i;
+/** Marca de la landing al inicio del mensaje («L - », MARCA_LANDING; desde 0025). */
+const MARCA = /^\s*L\s*-\s*/i;
 
 /** Nombre que viene al final del mensaje («Mi nombre es: Ana»), o null. */
 export function nombreDe(texto: string): string | null {
@@ -36,10 +38,10 @@ export function nombreDe(texto: string): string | null {
 const CLAVES_NORMALIZADAS = (Object.keys(MENSAJES) as (keyof typeof MENSAJES)[]).map((k) => [k, normalizar(MENSAJES[k])] as const);
 
 /** Qué plantilla de la landing es este texto, o null si no es de la landing.
- *  Acepta que la persona añada algo al final (compara los primeros 30
- *  caracteres, que son distintos en cada plantilla). */
+ *  Ignora la marca «L - » del inicio y acepta que la persona añada algo al
+ *  final (compara los primeros 30 caracteres, que son distintos en cada plantilla). */
 export function plantillaDe(texto: string): Plantilla | null {
-  const base = normalizar(texto.replace(NOMBRE, ""));
+  const base = normalizar(texto.replace(MARCA, "").replace(NOMBRE, ""));
   if (!base) return null;
   for (const [k, t] of CLAVES_NORMALIZADAS) if (base === t) return k;
   for (const [k, t] of CLAVES_NORMALIZADAS) if (base.startsWith(t.slice(0, 30))) return k;

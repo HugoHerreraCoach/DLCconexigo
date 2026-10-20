@@ -18,7 +18,7 @@ export function celularPeru(valor: unknown): string | null {
   return /^9\d{8}$/.test(digitos) ? digitos : null;
 }
 
-export type DatosFormulario = { nombre: string; celular: string; inicial: string; compra: string };
+export type DatosFormulario = { nombre: string; celular: string; inicial: string };
 
 /** Envía el formulario y espera a que la fila quede en la hoja de cálculo.
  *  Devuelve el id del registro; lanza si no se guardó. Reenviar el mismo `id`

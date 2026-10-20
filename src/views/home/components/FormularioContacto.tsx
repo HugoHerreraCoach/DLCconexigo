@@ -3,13 +3,15 @@
 import { useId } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { ArrowRight, Check, Gift, Loader2, User, UserPlus } from "lucide-react";
-import { INICIALES, PREGUNTAS, TIEMPOS_COMPRA } from "@/config/contenido";
+import { INICIALES, PREGUNTAS } from "@/config/contenido";
 import { EASE } from "@/shared/lib/motion";
+import { abrirWhatsApp } from "@/shared/lib/whatsapp";
 import { useRegistro } from "./useRegistro";
 
-/* El formulario ya no abre WhatsApp (2026-10-17): la respuesta se guarda como
-   fila en la hoja de cálculo de leads y SOLO cuando el servidor confirma la
-   fila se envía «Cliente potencial» a los píxeles (ver useRegistro). */
+/* La respuesta se guarda como fila en la hoja de cálculo de leads y SOLO
+   cuando el servidor confirma la fila se envía la conversión a los píxeles.
+   Desde el 2026-10-20 (docs/0023), después se abre WhatsApp con el mensaje
+   del registro (ver useRegistro). */
 
 function MensajeError({ id, texto }: { id: string; texto?: string }) {
   return (
@@ -29,8 +31,7 @@ function MensajeError({ id, texto }: { id: string; texto?: string }) {
   );
 }
 
-/** Pregunta con opciones tipo chip (una sola elección). `id` va en el grupo
- *  para poder enfocar su primera opción si falta responderla. */
+/** Pregunta con opciones tipo chip (una sola elección, siempre hay una marcada). */
 function Opciones<T extends string>({
   id,
   titulo,
@@ -51,7 +52,7 @@ function Opciones<T extends string>({
       <p id={`${id}-t`} className="mb-2 block text-xs font-bold text-neutral-700 uppercase tracking-wide">
         {titulo}
       </p>
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-2 gap-2">
         {opciones.map((o) => {
           const seleccionado = valor === o;
           return (
@@ -84,19 +85,16 @@ function Opciones<T extends string>({
 }
 
 export function FormularioContacto() {
-  const { campos, errores, estado, actualizar, enviar: registrar } = useRegistro("formulario-hero");
+  const { campos, errores, estado, whatsapp, actualizar, enviar: registrar } = useRegistro("formulario-hero");
   const idNombre = useId();
   const idCelular = useId();
   const idInicial = useId();
-  const idCompra = useId();
 
   const enviar = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const conError = await registrar();
     if (conError === "nombre") document.getElementById(idNombre)?.focus();
     if (conError === "celular") document.getElementById(idCelular)?.focus();
-    if (conError === "inicial") document.getElementById(idInicial)?.querySelector("button")?.focus();
-    if (conError === "compra") document.getElementById(idCompra)?.querySelector("button")?.focus();
   };
 
   return (
@@ -168,7 +166,7 @@ export function FormularioContacto() {
               type="tel"
               inputMode="tel"
               autoComplete="tel"
-              placeholder="Tu número de celular*"
+              placeholder="Tu número de whatsapp*"
               value={campos.celular}
               onChange={(e) => actualizar("celular", e.target.value)}
               aria-invalid={Boolean(errores.celular)}
@@ -184,17 +182,7 @@ export function FormularioContacto() {
           titulo={PREGUNTAS.inicial}
           opciones={INICIALES}
           valor={campos.inicial}
-          error={errores.inicial}
           onElegir={(v) => actualizar("inicial", v)}
-        />
-
-        <Opciones
-          id={idCompra}
-          titulo={PREGUNTAS.compra}
-          opciones={TIEMPOS_COMPRA}
-          valor={campos.compra}
-          error={errores.compra}
-          onElegir={(v) => actualizar("compra", v)}
         />
       </div>
 
@@ -252,7 +240,7 @@ export function FormularioContacto() {
               transition={{ type: "spring", stiffness: 420, damping: 22 }}
             >
               <Check className="size-5 shrink-0" strokeWidth={3} aria-hidden="true" />
-              ¡Listo! Un asesor te contactará pronto
+              ¡Listo! Abriendo WhatsApp…
             </motion.span>
           )}
         </AnimatePresence>
@@ -261,6 +249,7 @@ export function FormularioContacto() {
       <AnimatePresence>
         {estado === "error" && (
           <motion.p
+            key="error"
             role="alert"
             initial={{ opacity: 0, y: -4 }}
             animate={{ opacity: 1, y: 0 }}
@@ -268,6 +257,25 @@ export function FormularioContacto() {
             className="mt-2.5 text-center text-xs font-medium text-red-600"
           >
             No pudimos registrar tus datos. Revisa tu conexión e inténtalo de nuevo.
+          </motion.p>
+        )}
+        {estado === "enviado" && whatsapp && (
+          <motion.p
+            key="whatsapp"
+            initial={{ opacity: 0, y: -4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0 }}
+            className="mt-2.5 text-center text-xs font-medium text-neutral-600"
+          >
+            ¿No se abrió WhatsApp?{" "}
+            {/* Botón y no enlace wa.me: así Pixeles.tsx no lo cuenta como otro clic a WhatsApp. */}
+            <button
+              type="button"
+              onClick={() => abrirWhatsApp(whatsapp)}
+              className="cursor-pointer font-bold text-[#1da851] underline underline-offset-2"
+            >
+              Ábrelo aquí
+            </button>
           </motion.p>
         )}
       </AnimatePresence>

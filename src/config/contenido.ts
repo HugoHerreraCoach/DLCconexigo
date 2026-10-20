@@ -6,20 +6,20 @@
 
 export const FOTO_HERO = "/galeria/porton-ingreso.jpg";
 
-/* ── Preguntas del formulario (hero) y del chat flotante ────────────────────
-   Las mismas que el formulario instantáneo de TikTok: con cuánto cuenta de
-   inicial y cuándo quiere comprar. El formulario las guarda en la hoja de
-   leads (columnas INICIAL y TIEMPO DE COMPRA); el chat las manda en el
-   mensaje de WhatsApp para que el asesor llegue con contexto. */
+/* ── Pregunta del formulario (hero) y del chat flotante ─────────────────────
+   Desde el 2026-10-20 (docs/0023) es una sola: con cuánto inicial quiere
+   empezar, con la primera opción marcada al entrar o recargar la página. Se
+   guarda en la columna INICIAL de la hoja de leads (TIEMPO DE COMPRA queda
+   vacía) y va en el mensaje de WhatsApp con que termina el registro. */
 export const PREGUNTAS = {
-  inicial: "¿Con cuánto cuentas de inicial?",
-  compra: "¿Cuándo quieres comprar?",
+  inicial: "¿Con cuánto inicial te gustaría empezar?",
 } as const;
-export const INICIALES = ["S/ 5,000 a S/ 10,000", "Más de S/ 10,000", "Pago al contado"] as const;
-export const TIEMPOS_COMPRA = ["Este mes", "De 1 a 3 meses", "Más adelante"] as const;
+export const INICIALES = ["Desde S/.5 mil", "Más de S/. 10,000"] as const;
 
 export type Inicial = (typeof INICIALES)[number];
-export type TiempoCompra = (typeof TIEMPOS_COMPRA)[number];
+
+/** Opción marcada de entrada. */
+export const INICIAL_POR_DEFECTO: Inicial = INICIALES[0];
 
 /* ── Espacios del condominio (grid) ─────────────────────────────────────── */
 export type Espacio = { titulo: string; texto: string; imagen: string; alt: string };

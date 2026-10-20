@@ -1,12 +1,18 @@
 import { SITIO } from "@/config/sitio";
 
-/** Enlace wa.me con el mensaje ya escrito. */
+/** Marca con la que empiezan los mensajes que salen de la landing (desde el
+ *  2026-10-20, docs/0025): «L - <mensaje>». Con ella el CRM sabe que el
+ *  contacto llegó de la landing. */
+export const MARCA_LANDING = "L - ";
+
+/** Enlace wa.me con el mensaje ya escrito y la marca de la landing al inicio. */
 export function enlaceWhatsApp(mensaje: string): string {
-  return `https://wa.me/${SITIO.whatsapp}?text=${encodeURIComponent(mensaje)}`;
+  const texto = mensaje.startsWith(MARCA_LANDING) ? mensaje : `${MARCA_LANDING}${mensaje}`;
+  return `https://wa.me/${SITIO.whatsapp}?text=${encodeURIComponent(texto)}`;
 }
 
-/* Los mensajes de WhatsApp salen tal cual, SIN código de referencia (acordado
-   con el equipo el 2026-10-01): ya no se mide si el mensaje llegó al CRM.
+/* Los mensajes de WhatsApp salen SIN código de referencia (acordado con el
+   equipo el 2026-10-01); desde 0025 llevan solo la marca «L - », sin número.
    PATRON_REFERENCIA solo lo usa /api/whatsapp/recibido para aceptar avisos de
    códigos antiguos ("L-1", "L-2"…) que el CRM pudiera reenviar. */
 export const PATRON_REFERENCIA = /^L-?[1-9]\d{0,9}$/i;
@@ -40,6 +46,13 @@ export function mensajeConNombre(base: string, nombre?: string): string {
   const baseLimpia = base.replace(/[.\s]+$/, "");
   return `${baseLimpia}. Mi nombre es: ${nombreFinal}`;
 }
+
+/** Mensaje con el que termina el registro (formulario del hero y chat flotante,
+ *  desde el 2026-10-20, docs/0023): el de MENSAJES.general, como antes del
+ *  2026-10-17, con la inicial elegida y el nombre al final. El CRM lo reconoce
+ *  como plantilla "general" y saca el nombre (plantillaDe y nombreDe). */
+export const mensajeRegistro = (nombre: string, inicial: string) =>
+  mensajeConNombre(`${MENSAJES.general} Inicial: ${inicial}.`, nombre);
 
 /** Abre WhatsApp con el mensaje tal cual. `medir` registra el «Cliente
  *  potencial» (píxeles + registro propio) antes de salir de la página y recibe

@@ -4,14 +4,16 @@ import { useEffect, useId, useState } from "react";
 import Image from "next/image";
 import { AnimatePresence, motion } from "framer-motion";
 import { Check, Loader2, User, UserPlus, X } from "lucide-react";
-import { INICIALES, PREGUNTAS, TIEMPOS_COMPRA } from "@/config/contenido";
+import { INICIALES, PREGUNTAS } from "@/config/contenido";
+import { abrirWhatsApp } from "@/shared/lib/whatsapp";
 import { IconoWhatsApp } from "@/shared/ui/IconoWhatsApp";
 import { useRegistro } from "./useRegistro";
 
-/* Chat flotante (2026-10-17): formulario de registro con los mismos campos que
-   el del hero (nombre, celular, inicial y cuándo comprar). Ya no abre WhatsApp:
-   guarda la fila en la hoja de cálculo y, con la fila confirmada, envía
-   «Cliente potencial» (ver useRegistro). En la hoja sale con su propio ORIGEN. */
+/* Chat flotante «Asesor en línea»: formulario de registro con los mismos campos
+   que el del hero (nombre, WhatsApp e inicial; docs/0023). Guarda la fila en la
+   hoja de cálculo, con la fila confirmada envía la conversión y después abre
+   WhatsApp con el mensaje del registro (ver useRegistro). En la hoja sale con
+   su propio ORIGEN. */
 
 function ErrorChat({ id, texto }: { id: string; texto?: string }) {
   if (!texto) return null;
@@ -50,8 +52,7 @@ function CampoChat({
   );
 }
 
-/** Pregunta del chat con respuestas tipo píldora (una sola elección). `id` va
- *  en el grupo para poder enfocar su primera opción si falta responderla. */
+/** Pregunta del chat con respuestas tipo píldora (una sola elección, siempre hay una marcada). */
 function PreguntaChat<T extends string>({
   id,
   titulo,
@@ -100,12 +101,11 @@ function PreguntaChat<T extends string>({
 export function WhatsAppFlotante() {
   const [abierto, setAbierto] = useState(false);
   const [burbujaVisible, setBurbujaVisible] = useState(false);
-  const { campos, errores, estado, actualizar, enviar: registrar } = useRegistro("chat-flotante-registro");
+  const { campos, errores, estado, whatsapp, actualizar, enviar: registrar } = useRegistro("chat-flotante-registro");
   const idFormulario = useId();
   const idNombre = useId();
   const idCelular = useId();
   const idInicial = useId();
-  const idCompra = useId();
 
   // Muestra un globo sugerente después de 3 segundos si aún no se abrió el chat
   useEffect(() => {
@@ -135,8 +135,6 @@ export function WhatsAppFlotante() {
     const conError = await registrar();
     if (conError === "nombre") document.getElementById(idNombre)?.focus();
     if (conError === "celular") document.getElementById(idCelular)?.focus();
-    if (conError === "inicial") document.getElementById(idInicial)?.querySelector("button")?.focus();
-    if (conError === "compra") document.getElementById(idCompra)?.querySelector("button")?.focus();
   };
 
   const ocupado = estado === "enviando" || estado === "enviado";
@@ -238,8 +236,8 @@ export function WhatsAppFlotante() {
                   type="tel"
                   inputMode="tel"
                   autoComplete="tel"
-                  placeholder="Tu número de celular*"
-                  aria-label="Número de celular"
+                  placeholder="Tu número de whatsapp*"
+                  aria-label="Número de WhatsApp"
                   value={campos.celular}
                   onChange={(e) => actualizar("celular", e.target.value)}
                   error={errores.celular}
@@ -257,16 +255,7 @@ export function WhatsAppFlotante() {
                   titulo={PREGUNTAS.inicial}
                   opciones={INICIALES}
                   valor={campos.inicial}
-                  error={errores.inicial}
                   onElegir={(v) => actualizar("inicial", v)}
-                />
-                <PreguntaChat
-                  id={idCompra}
-                  titulo={PREGUNTAS.compra}
-                  opciones={TIEMPOS_COMPRA}
-                  valor={campos.compra}
-                  error={errores.compra}
-                  onElegir={(v) => actualizar("compra", v)}
                 />
               </form>
             </div>
@@ -290,7 +279,7 @@ export function WhatsAppFlotante() {
                 ) : estado === "enviado" ? (
                   <>
                     <Check className="size-4" strokeWidth={3} aria-hidden="true" />
-                    ¡Listo! Un asesor te contactará pronto
+                    ¡Listo! Abriendo WhatsApp…
                   </>
                 ) : (
                   <>
@@ -302,6 +291,19 @@ export function WhatsAppFlotante() {
               {estado === "error" && (
                 <p role="alert" className="mt-2 text-center text-[11px] font-medium text-red-400">
                   No pudimos registrar tus datos. Revisa tu conexión e inténtalo de nuevo.
+                </p>
+              )}
+              {estado === "enviado" && whatsapp && (
+                <p className="mt-2 text-center text-[11px] font-medium text-neutral-300">
+                  ¿No se abrió WhatsApp?{" "}
+                  {/* Botón y no enlace wa.me: así Pixeles.tsx no lo cuenta como otro clic a WhatsApp. */}
+                  <button
+                    type="button"
+                    onClick={() => abrirWhatsApp(whatsapp)}
+                    className="cursor-pointer font-bold text-[#25D366] underline underline-offset-2"
+                  >
+                    Ábrelo aquí
+                  </button>
                 </p>
               )}
               <p className="mt-2 text-center text-[10px] text-neutral-400">

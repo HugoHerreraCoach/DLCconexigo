@@ -29,9 +29,13 @@ const state = vi.hoisted(() => {
 vi.mock("@/server/db", () => ({ sql: state.sqlFn, asegurarEsquema: vi.fn() }));
 
 import { POST } from "../src/app/api/formulario/route";
+import { INICIAL_POR_DEFECTO, INICIALES, PREGUNTAS } from "../src/config/contenido";
 import { agregarFila, COLUMNAS, filaLead } from "../src/server/hoja-calculo";
 import { celularPeru, enviarFormulario } from "../src/shared/lib/formulario";
 import { clientePotencial, rastrearContacto } from "../src/shared/lib/pixeles";
+import { nombreDe, plantillaDe } from "../src/shared/lib/plantillas";
+import { enlaceWhatsApp, MARCA_LANDING, mensajeRegistro } from "../src/shared/lib/whatsapp";
+import { ESPERA_WHATSAPP_MS, terminarRegistro } from "../src/views/home/components/useRegistro";
 
 const { privateKey, publicKey } = generateKeyPairSync("rsa", {
   modulusLength: 2048,
@@ -72,8 +76,7 @@ const VALIDO = {
   id: "11111111-2222-4333-8444-555555555555",
   nombre: "Ana   Pérez",
   celular: "987 654 321",
-  inicial: "S/ 5,000 a S/ 10,000",
-  compra: "De 1 a 3 meses",
+  inicial: "Desde S/.5 mil",
   visitante: "visitante-1",
   fuente: "meta",
   // Como llegan hoy los anuncios de Meta: utm_campaign = id de la campaña.
@@ -112,8 +115,7 @@ describe("Formulario del hero → hoja de cálculo → «Cliente potencial»", (
       fecha,
       nombre: "Ana Pérez",
       celular: "987654321",
-      inicial: "Más de S/ 10,000",
-      compra: "Este mes",
+      inicial: "Más de S/. 10,000",
       fuente: "meta",
       campana: null,
       origen: "Landing · Formulario",
@@ -133,8 +135,9 @@ describe("Formulario del hero → hoja de cálculo → «Cliente potencial»", (
     // El id del registro de la landing va en «TikTok Lead ID».
     expect(col("TikTok Lead ID")).toBe("reg-1");
     expect(col("TikTok Lead Status")).toBe("");
-    expect(col("INICIAL")).toBe("Más de S/ 10,000");
-    expect(col("TIEMPO DE COMPRA")).toBe("Este mes");
+    expect(col("INICIAL")).toBe("Más de S/. 10,000");
+    // Desde 0023 la landing ya no pregunta cuándo comprar.
+    expect(col("TIEMPO DE COMPRA")).toBe("");
     expect(COLUMNAS.slice(10)).toEqual(["ORIGEN", "FUENTE"]);
   });
 
@@ -173,16 +176,16 @@ describe("Formulario del hero → hoja de cálculo → «Cliente potencial»", (
     expect(res.status).toBe(400);
     expect(fetchMock).not.toHaveBeenCalled();
 
-    const res2 = await POST(pedir({ ...VALIDO, compra: "Otra cosa" }));
+    const res2 = await POST(pedir({ ...VALIDO, inicial: "Otra cosa" }));
     expect(res2.status).toBe(400);
 
-    // Las opciones antiguas del formulario ya no valen.
+    // Las opciones de antes de 0017 ya no valen.
     const res3 = await POST(pedir({ ...VALIDO, inicial: "Desde S/ 5,000" }));
     expect(res3.status).toBe(400);
 
-    const sinCompra: Record<string, unknown> = { ...VALIDO };
-    delete sinCompra.compra;
-    const res4 = await POST(pedir(sinCompra));
+    const sinInicial: Record<string, unknown> = { ...VALIDO };
+    delete sinInicial.inicial;
+    const res4 = await POST(pedir(sinInicial));
     expect(res4.status).toBe(400);
 
     // Solo los formularios de FORMULARIOS pueden escribir en la hoja.
@@ -210,8 +213,8 @@ describe("Formulario del hero → hoja de cálculo → «Cliente potencial»", (
     const [fila] = JSON.parse(initAppend.body).values;
     expect(fila[COLUMNAS.indexOf("NOMBRE")]).toBe("Ana Pérez");
     expect(fila[COLUMNAS.indexOf("NUMERO")]).toBe("+51 987 654 321");
-    expect(fila[COLUMNAS.indexOf("INICIAL")]).toBe("S/ 5,000 a S/ 10,000");
-    expect(fila[COLUMNAS.indexOf("TIEMPO DE COMPRA")]).toBe("De 1 a 3 meses");
+    expect(fila[COLUMNAS.indexOf("INICIAL")]).toBe("Desde S/.5 mil");
+    expect(fila[COLUMNAS.indexOf("TIEMPO DE COMPRA")]).toBe("");
     // Sin META_ACCESS_TOKEN no se busca el nombre: la fila igual se escribe, con el id de la campaña.
     expect(fila[COLUMNAS.indexOf("NOMBRE DE CAMPAÑA")]).toBe(VALIDO.campana);
     expect(fila[COLUMNAS.indexOf("FUENTE")]).toBe("meta");
@@ -225,7 +228,7 @@ describe("Formulario del hero → hoja de cálculo → «Cliente potencial»", (
     expect(insercion?.values).toContain("formulario-hero");
     // El panel cruza `campana` con el id de las campañas de Meta: se guarda tal cual llegó.
     expect(insercion?.values).toContain(VALIDO.campana);
-    expect(insercion?.values).toContainEqual({ inicial: "S/ 5,000 a S/ 10,000", compra: "De 1 a 3 meses" });
+    expect(insercion?.values).toContainEqual({ inicial: "Desde S/.5 mil" });
     expect(JSON.stringify(insercion?.values)).not.toMatch(/987654321|Ana Pérez/);
   });
 
@@ -300,6 +303,18 @@ describe("Formulario del hero → hoja de cálculo → «Cliente potencial»", (
     expect(llamadasA(metaHoja, "https://sheets.googleapis.com/")[0][0]).toContain("'LEADS%20META'!A1:append");
   });
 
+  it("acepta las dos opciones y, mientras queden pestañas de antes de 0023, las de 0017 (sin guardar «compra»)", async () => {
+    const opciones = [...INICIALES, "S/ 5,000 a S/ 10,000", "Más de S/ 10,000", "Pago al contado"];
+    for (const [i, inicial] of opciones.entries()) {
+      const fetchMock = mockGoogle();
+      const res = await POST(pedir({ ...VALIDO, id: `11111111-2222-4333-8444-00000000000${i}`, inicial, compra: "Este mes" }));
+      expect(res.status).toBe(200);
+      const fila = filaEscrita(fetchMock);
+      expect(fila[COLUMNAS.indexOf("INICIAL")]).toBe(inicial);
+      expect(fila[COLUMNAS.indexOf("TIEMPO DE COMPRA")]).toBe("");
+    }
+  });
+
   it("si Google rechaza la fila responde 502 y no registra el lead", async () => {
     mockGoogle({ error: { message: "The caller does not have permission" } }, 403);
     const res = await POST(pedir(VALIDO));
@@ -323,7 +338,7 @@ describe("Formulario del hero → hoja de cálculo → «Cliente potencial»", (
       sessionStorage: { getItem: vi.fn(), setItem: vi.fn() },
       matchMedia: vi.fn().mockReturnValue({ matches: true }),
     };
-    const datos = { nombre: "Ana Pérez", celular: "987654321", inicial: "Pago al contado", compra: "Más adelante" };
+    const datos = { nombre: "Ana Pérez", celular: "987654321", inicial: "Más de S/. 10,000" };
 
     globalThis.fetch = vi.fn().mockResolvedValue(Response.json({ ok: false }, { status: 502 })) as any;
     await expect(enviarFormulario("reg-1", datos)).rejects.toThrow();
@@ -352,7 +367,7 @@ describe("Formulario del hero → hoja de cálculo → «Cliente potencial»", (
     const fetchOk = vi.fn(async (_url: string, init: any) => Response.json({ ok: true, id: JSON.parse(init.body).id }));
     globalThis.fetch = fetchOk as any;
     try {
-      await enviarFormulario("reg-3", { nombre: "Ana Pérez", celular: "987654321", inicial: "Pago al contado", compra: "Este mes" });
+      await enviarFormulario("reg-3", { nombre: "Ana Pérez", celular: "987654321", inicial: "Desde S/.5 mil" });
     } finally {
       vi.unstubAllGlobals();
     }
@@ -368,12 +383,12 @@ describe("Formulario del hero → hoja de cálculo → «Cliente potencial»", (
     const ttq = { track: vi.fn() };
     (globalThis as any).window = { fbq, ttq };
 
-    clientePotencial("formulario-hero", "reg-1", { inicial: "S/ 5,000 a S/ 10,000", compra: "Este mes" });
+    clientePotencial("formulario-hero", "reg-1", { inicial: "Desde S/.5 mil" });
 
     expect(fbq).toHaveBeenCalledWith(
       "track",
       "CompleteRegistration",
-      expect.objectContaining({ origen: "formulario-hero", compra: "Este mes", content_name: "Finca Algarrobo" }),
+      expect.objectContaining({ origen: "formulario-hero", inicial: "Desde S/.5 mil", content_name: "Finca Algarrobo" }),
       { eventID: "reg-1" },
     );
     expect(ttq.track).toHaveBeenCalledWith("CompleteRegistration", expect.objectContaining({ content_name: "Finca Algarrobo" }), { event_id: "reg-1" });
@@ -385,7 +400,7 @@ describe("Formulario del hero → hoja de cálculo → «Cliente potencial»", (
     const ttq = { track: vi.fn() };
     (globalThis as any).window = { fbq, ttq };
 
-    clientePotencial("formulario-hero", "reg-2", { inicial: "Pago al contado", compra: "Este mes" });
+    clientePotencial("formulario-hero", "reg-2", { inicial: "Más de S/. 10,000" });
 
     expect(fbq).toHaveBeenCalledTimes(1);
     expect(ttq.track).toHaveBeenCalledTimes(1);
@@ -394,7 +409,7 @@ describe("Formulario del hero → hoja de cálculo → «Cliente potencial»", (
   });
 });
 
-describe("Chat flotante: ya no abre WhatsApp ni envía conversión por clic", () => {
+describe("Chat flotante: conversión solo con la fila guardada; un clic a WhatsApp no la envía", () => {
   let fbq: any;
   let ttq: any;
 
@@ -413,12 +428,12 @@ describe("Chat flotante: ya no abre WhatsApp ni envía conversión por clic", ()
     };
   });
 
-  it("su «Cliente potencial» sale con el id del registro y el origen del chat", () => {
-    clientePotencial("chat-flotante-registro", "reg-chat", { inicial: "Más de S/ 10,000", compra: "Este mes" });
+  it("su conversión sale con el id del registro y el origen del chat", () => {
+    clientePotencial("chat-flotante-registro", "reg-chat", { inicial: "Más de S/. 10,000" });
     expect(fbq).toHaveBeenCalledWith(
       "track",
       "CompleteRegistration",
-      expect.objectContaining({ origen: "chat-flotante-registro", inicial: "Más de S/ 10,000", compra: "Este mes" }),
+      expect.objectContaining({ origen: "chat-flotante-registro", inicial: "Más de S/. 10,000" }),
       { eventID: "reg-chat" },
     );
     expect(ttq.track).toHaveBeenCalledWith(
@@ -439,4 +454,79 @@ describe("Chat flotante: ya no abre WhatsApp ni envía conversión por clic", ()
       expect(cuerpo).toMatchObject({ tipo: "contacto", origen: id, intencion_id: intencion });
     },
   );
+});
+
+describe("Registro → conversión → WhatsApp (0023)", () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("una sola pregunta con dos opciones y «Desde S/.5 mil» marcada de entrada", () => {
+    expect(PREGUNTAS).toEqual({ inicial: "¿Con cuánto inicial te gustaría empezar?" });
+    expect(INICIALES).toEqual(["Desde S/.5 mil", "Más de S/. 10,000"]);
+    expect(INICIAL_POR_DEFECTO).toBe("Desde S/.5 mil");
+  });
+
+  it("el mensaje es el de antes (plantilla «general») con la inicial y el nombre al final", () => {
+    const texto = mensajeRegistro("Ana Pérez", "Desde S/.5 mil");
+    expect(texto).toBe("Hola, quiero más información del proyecto Finca Algarrobo. Inicial: Desde S/.5 mil. Mi nombre es: Ana Pérez");
+    expect(plantillaDe(texto)).toBe("general");
+    expect(nombreDe(texto)).toBe("Ana Pérez");
+    expect(mensajeRegistro("Luis", "Más de S/. 10,000")).toBe(
+      "Hola, quiero más información del proyecto Finca Algarrobo. Inicial: Más de S/. 10,000. Mi nombre es: Luis",
+    );
+  });
+
+  it("con la fila guardada: primero la conversión y, un momento después, WhatsApp con el mensaje", () => {
+    vi.useFakeTimers();
+    const fbq = vi.fn();
+    const ttq = { track: vi.fn() };
+    const location = { href: "https://grupodlc.conexigo.com/" };
+    const open = vi.fn();
+    (globalThis as any).window = { fbq, ttq, location, open };
+    vi.stubGlobal("navigator", { userAgent: "Mozilla/5.0 (Linux; Android 14; SM-A146M) AppleWebKit/537.36 Mobile Safari/537.36" });
+    try {
+      const enlace = terminarRegistro("formulario-hero", "reg-wa", "Ana Pérez", "Desde S/.5 mil");
+
+      expect(fbq).toHaveBeenCalledWith("track", "CompleteRegistration", expect.objectContaining({ inicial: "Desde S/.5 mil" }), { eventID: "reg-wa" });
+      expect(ttq.track).toHaveBeenCalledWith("CompleteRegistration", expect.anything(), { event_id: "reg-wa" });
+      // Todavía no sale de la página: los píxeles tienen su margen.
+      expect(location.href).toBe("https://grupodlc.conexigo.com/");
+
+      vi.advanceTimersByTime(ESPERA_WHATSAPP_MS);
+      // En celular navega en la misma pestaña (abre la app), sin ventana nueva.
+      expect(location.href).toBe(enlace);
+      expect(open).not.toHaveBeenCalled();
+      expect(enlace.startsWith("https://wa.me/")).toBe(true);
+      expect(new URL(enlace).searchParams.get("text")).toBe(`L - ${mensajeRegistro("Ana Pérez", "Desde S/.5 mil")}`);
+    } finally {
+      vi.useRealTimers();
+      vi.unstubAllGlobals();
+    }
+  });
+});
+
+describe("Marca «L - » de la landing (0025)", () => {
+  const textoDe = (enlace: string) => new URL(enlace).searchParams.get("text");
+
+  it("todo mensaje de la landing empieza con «L - », una sola vez", () => {
+    expect(MARCA_LANDING).toBe("L - ");
+    expect(textoDe(enlaceWhatsApp("Hola, quiero más información del proyecto Finca Algarrobo."))).toBe(
+      "L - Hola, quiero más información del proyecto Finca Algarrobo.",
+    );
+    expect(textoDe(enlaceWhatsApp("L - Hola"))).toBe("L - Hola");
+    expect(textoDe(enlaceWhatsApp(mensajeRegistro("Ana Pérez", "Desde S/.5 mil")))).toBe(
+      "L - Hola, quiero más información del proyecto Finca Algarrobo. Inicial: Desde S/.5 mil. Mi nombre es: Ana Pérez",
+    );
+  });
+
+  it("el CRM lo sigue reconociendo: la marca no cambia la plantilla ni el nombre", () => {
+    const texto = "L - Hola, quiero más información del proyecto Finca Algarrobo. Inicial: Más de S/. 10,000. Mi nombre es: Luis Ramos";
+    expect(plantillaDe(texto)).toBe("general");
+    expect(nombreDe(texto)).toBe("Luis Ramos");
+    // Si en el camino se pierden los espacios de la marca, igual se reconoce.
+    expect(plantillaDe("L-Hola, quiero agendar una visita a Finca Algarrobo este fin de semana.")).toBe("visita");
+    // Un texto cualquiera con la marca sigue sin ser una plantilla de la landing.
+    expect(plantillaDe("L - Buenas, ¿tienen lotes en Lambayeque?")).toBeNull();
+  });
 });

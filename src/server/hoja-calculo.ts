@@ -5,8 +5,8 @@ import { createSign } from "node:crypto";
    «LEADS DLC_ FINCA ALGARROBO AUTOMATIZACIÓN - CRM», pestaña «Hoja 1». La misma
    hoja recibe los formularios instantáneos de TikTok, así que las columnas A–J
    siguen su formato (FECHA en segundos Unix, NUMERO como «+51 9XX XXX XXX»;
-   INICIAL y TIEMPO DE COMPRA son las mismas preguntas) y lo propio de la
-   landing va en la K y la L (ver COLUMNAS).
+   INICIAL es la misma pregunta y, desde 0023, la landing deja vacía TIEMPO DE
+   COMPRA) y lo propio de la landing va en la K y la L (ver COLUMNAS).
 
    Acceso con una cuenta de servicio de Google Cloud (API de Google Sheets
    activada y la hoja compartida con su correo como Editor):
@@ -67,8 +67,6 @@ export type LeadHoja = {
   /** Celular de 9 dígitos (ver celularPeru). */
   celular: string;
   inicial: string;
-  /** Cuándo quiere comprar (TIEMPOS_COMPRA). */
-  compra: string;
   fuente: string;
   /** Nombre de la campaña de Meta o TikTok; si no se conoce, su id. */
   campana: string | null;
@@ -86,7 +84,8 @@ export function filaLead(l: LeadHoja): (string | number)[] {
     NOMBRE: l.nombre,
     NUMERO: numeroHoja(l.celular),
     INICIAL: l.inicial,
-    "TIEMPO DE COMPRA": l.compra,
+    // La landing ya no la pregunta (0023): la columna queda para el formulario instantáneo de TikTok.
+    "TIEMPO DE COMPRA": "",
     "TikTok Lead ID": l.id,
     "TikTok Lead Status": "",
     "Lead creation time": unix,
