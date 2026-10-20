@@ -217,14 +217,15 @@ export function FormularioContacto() {
           {(estado === "reposo" || estado === "error") && (
             <motion.span
               key="reposo"
-              className="flex items-center justify-center gap-2.5 text-sm sm:text-base tracking-wide uppercase"
+              className="flex items-center justify-center gap-2.5 text-center text-sm leading-tight sm:text-base tracking-normal sm:tracking-wide uppercase"
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -8 }}
               transition={{ duration: 0.2 }}
             >
-              <UserPlus className="size-5 shrink-0" aria-hidden="true" />
-              <span>{estado === "error" ? "Intentar de nuevo" : "Registrarme"}</span>
+              {/* En celular el texto ocupa dos líneas: sin el ícono de la izquierda cabe en el alto del botón. */}
+              <UserPlus className="hidden size-5 shrink-0 sm:block" aria-hidden="true" />
+              <span>{estado === "error" ? "Intentar de nuevo" : "Reclama tu descuento por WhatsApp"}</span>
               <ArrowRight className="size-4.5 transition-transform duration-300 group-hover:translate-x-1" aria-hidden="true" />
             </motion.span>
           )}
