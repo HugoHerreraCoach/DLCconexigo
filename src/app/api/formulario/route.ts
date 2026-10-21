@@ -89,6 +89,13 @@ export async function POST(req: Request) {
     }
   }
 
+  const campanaPorDefecto =
+    fuente === "meta"
+      ? "C_TEST_NVNRO_CONEXIPEMA_FINCAALGARROBO_LANDING"
+      : fuente === "tiktok"
+        ? "TIKTOK_LANDING_NVNRO_CONEXIPEMA_FINCAALGARROBO"
+        : null;
+
   try {
     await agregarFila(
       hoja,
@@ -99,7 +106,7 @@ export async function POST(req: Request) {
         celular,
         inicial,
         fuente,
-        campana: (await nombrePendiente) ?? campanaId,
+        campana: (await nombrePendiente) ?? campanaId ?? campanaPorDefecto,
         origen: `Landing · ${RASTROS[origen].nombre}`,
       }),
     );

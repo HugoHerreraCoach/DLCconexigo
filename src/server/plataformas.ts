@@ -231,7 +231,8 @@ export async function nombreCampanaMeta(id: string): Promise<string | null> {
     // Token vencido, límite de uso, id inexistente…: no se guarda y se reintenta en el próximo registro.
     if (!res.ok) return null;
     const json = (await res.json()) as { name?: string; account_id?: string };
-    const nombre = json.name && `act_${json.account_id}` === META_CUENTA ? json.name : null;
+    const cuentas = new Set([META_CUENTA, "act_2085683088740239"]);
+    const nombre = json.name && cuentas.has(`act_${json.account_id}`) ? json.name : null;
     if (nombresCampana.size > 200) nombresCampana.clear();
     nombresCampana.set(id, { nombre, vence: Date.now() + NOMBRES_TTL_MS });
     return nombre;

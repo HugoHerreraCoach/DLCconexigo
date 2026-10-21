@@ -301,6 +301,7 @@ describe("Formulario del hero → hoja de cálculo → «Cliente potencial»", (
     const metaHoja = mockGoogle();
     await POST(pedir({ ...VALIDO, id: "11111111-2222-4333-8444-999999999999", fuente: "meta", campana: undefined }));
     expect(llamadasA(metaHoja, "https://sheets.googleapis.com/")[0][0]).toContain("'LEADS%20META'!A1:append");
+    expect(filaEscrita(metaHoja)[COLUMNAS.indexOf("NOMBRE DE CAMPAÑA")]).toBe("C_TEST_NVNRO_CONEXIPEMA_FINCAALGARROBO_LANDING");
   });
 
   it("acepta las dos opciones y, mientras queden pestañas de antes de 0023, las de 0017 (sin guardar «compra»)", async () => {
