@@ -10,6 +10,7 @@
 export const SITIO = {
   marca: "Grupo DLC",
   proyecto: "Finca Algarrobo",
+  campana: "Campaña DLC - Finca Algarrobo",
   url: process.env.NEXT_PUBLIC_SITE_URL ?? "https://grupodlc.pe",
   /** Número de WhatsApp de ventas (965 121 855; antes 976 330 336, hasta el
    *  2026-10-20), formato internacional sin "+" ni espacios. Se puede
