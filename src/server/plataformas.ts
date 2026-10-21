@@ -36,21 +36,26 @@ const ordenar = (m: Map<string, number>) =>
  *  - C_04_CONEXIPEMA_FINCAALGARROBO_LANDING
  */
 const META_CUENTA = "act_1107857613612617";
+const META_CUENTA_NUEVA = "act_2085683088740239";
+const META_CUENTAS = [META_CUENTA, META_CUENTA_NUEVA] as const;
 const META_API = "https://graph.facebook.com/v26.0";
 
 export const CAMPANAS_OFICIALES = [
   "C_N1_CONEXIPEMA_FINCAALGARROBO_WHATSAPP",
   "C_04_CONEXIPEMA_FINCAALGARROBO_LANDING",
+  "C_TEST_NVNRO_CONEXIPEMA_FINCAALGARROBO_LANDING",
+  "C_TEST_NVNRO_CONEXIPEMA_FINCAALGARROBO_WHATSAPP",
 ] as const;
 
-/** Filtro estricto: solo cuenta y jala información de estas 2 campañas del proyecto */
+/** Filtro estricto: solo cuenta y jala información de las campañas oficiales del proyecto */
 export function esCampanaObjetivo(nombre: string): boolean {
   if (!nombre) return false;
   const n = nombre.toUpperCase().trim();
   return (
     n.includes("C_N1_CONEXIPEMA_FINCAALGARROBO") ||
     n.includes("C_04_CONEXIPEMA_FINCAALGARROBO") ||
-    (n.includes("FINCAALGARROBO") && (n.includes("C_N1") || n.includes("C_04")))
+    n.includes("C_TEST_NVNRO_CONEXIPEMA_FINCAALGARROBO") ||
+    (n.includes("FINCAALGARROBO") && (n.includes("C_N1") || n.includes("C_04") || n.includes("C_TEST_NVNRO")))
   );
 }
 
@@ -253,29 +258,43 @@ export async function campanasMeta(rangoParam: ParametroRango): Promise<Resultad
 
   try {
     let errorParcialMeta: string | null = null;
-    const [cuenta, campanas, insightsCampanas, insightsAds] = await Promise.all([
+    const [cuenta, resultadosPorCuenta] = await Promise.all([
       graph<RespuestaCuenta>(`${META_CUENTA}?fields=currency`, token),
-      graph<RespuestaCampanas>(
-        `${META_CUENTA}/campaigns?fields=id,name,effective_status,daily_budget,lifetime_budget&limit=200`,
-        token,
+      Promise.all(
+        META_CUENTAS.map(async (idCuenta) => {
+          const [campanas, insightsCampanas, insightsAds] = await Promise.all([
+            graph<RespuestaCampanas>(
+              `${idCuenta}/campaigns?fields=id,name,effective_status,daily_budget,lifetime_budget&limit=200`,
+              token,
+            ).catch(() => ({ data: [] } as RespuestaCampanas)),
+            graph<RespuestaInsights>(
+              `${idCuenta}/insights?level=campaign&time_range=${rango}&fields=campaign_id,campaign_name,spend,actions,impressions,reach&limit=200`,
+              token,
+            ).catch((e) => {
+              errorParcialMeta ??= `Fallo al obtener insights de campañas: ${e instanceof Error ? e.message : String(e)}`;
+              return { data: [] } as RespuestaInsights;
+            }),
+            graph<RespuestaInsightsAds>(
+              `${idCuenta}/insights?level=ad&time_range=${rango}&fields=ad_id,ad_name,campaign_id,campaign_name,spend,actions,impressions,reach&limit=200`,
+              token,
+            ).catch((e) => {
+              errorParcialMeta ??= `Fallo al obtener insights de anuncios: ${e instanceof Error ? e.message : String(e)}`;
+              return { data: [] } as RespuestaInsightsAds;
+            }),
+          ]);
+          return { campanas, insightsCampanas, insightsAds };
+        }),
       ),
-      graph<RespuestaInsights>(
-        `${META_CUENTA}/insights?level=campaign&time_range=${rango}&fields=campaign_id,campaign_name,spend,actions,impressions,reach&limit=200`,
-        token,
-      ).catch((e) => {
-        errorParcialMeta = `Fallo al obtener insights de campañas: ${e instanceof Error ? e.message : String(e)}`;
-        return { data: [] } as RespuestaInsights;
-      }),
-      graph<RespuestaInsightsAds>(
-        `${META_CUENTA}/insights?level=ad&time_range=${rango}&fields=ad_id,ad_name,campaign_id,campaign_name,spend,actions,impressions,reach&limit=200`,
-        token,
-      ).catch((e) => {
-        errorParcialMeta ??= `Fallo al obtener insights de anuncios: ${e instanceof Error ? e.message : String(e)}`;
-        return { data: [] } as RespuestaInsightsAds;
-      }),
     ]);
 
-    const todasCampanas = campanas.data ?? [];
+    const todasCampanas = resultadosPorCuenta.flatMap((r) => r.campanas.data ?? []);
+    const todosInsightsCampanas = resultadosPorCuenta.flatMap((r) => r.insightsCampanas.data ?? []);
+    const mapaAdsUnicos = new Map<string, NonNullable<RespuestaInsightsAds["data"]>[number]>();
+    for (const ad of resultadosPorCuenta.flatMap((r) => r.insightsAds.data ?? [])) {
+      mapaAdsUnicos.set(ad.ad_id, ad);
+    }
+    const todosInsightsAds = Array.from(mapaAdsUnicos.values());
+
     const estados = new Map(todasCampanas.map((c) => [c.id, c.effective_status ?? "?"]));
     const nombres = new Map(todasCampanas.map((c) => [c.id, c.name ?? ""]));
     const presupuestosDiarios = new Map(
@@ -285,7 +304,7 @@ export async function campanasMeta(rangoParam: ParametroRango): Promise<Resultad
       todasCampanas.map((c) => [c.id, c.lifetime_budget ? Number(c.lifetime_budget) / 100 : null]),
     );
 
-    // 1. Filtrar únicamente las 2 campañas objetivo
+    // 1. Filtrar únicamente las campañas objetivo
     const campanasObjetivoMap = new Map<string, { id: string; nombre: string; estado: string }>();
     for (const c of todasCampanas) {
       if (esCampanaObjetivo(c.name ?? "")) {
@@ -302,7 +321,7 @@ export async function campanasMeta(rangoParam: ParametroRango): Promise<Resultad
       actions?: { action_type: string; value: string }[];
     };
     const mapaInsightsCampanas = new Map<string, FilaInsightCampana>();
-    for (const c of insightsCampanas.data ?? []) {
+    for (const c of todosInsightsCampanas) {
       if (esCampanaObjetivo(c.campaign_name)) {
         mapaInsightsCampanas.set(c.campaign_id, c);
         if (!campanasObjetivoMap.has(c.campaign_id)) {
@@ -345,8 +364,8 @@ export async function campanasMeta(rangoParam: ParametroRango): Promise<Resultad
       };
     }).sort((a, b) => b.gasto - a.gasto || b.leadsTotales - a.leadsTotales);
 
-    // 2. Filtrar y procesar anuncios de estas 2 campañas
-    const anuncios: FilaAnuncioMeta[] = (insightsAds.data ?? [])
+    // 2. Filtrar y procesar anuncios de estas campañas
+    const anuncios: FilaAnuncioMeta[] = todosInsightsAds
       .filter((ad) => esCampanaObjetivo(ad.campaign_name))
       .map((ad) => {
         const accion = (tipo: string) =>
