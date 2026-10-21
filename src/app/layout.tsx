@@ -6,8 +6,8 @@ import "./globals.css";
 
 // Inter para el cuerpo (igual que Conexigo); Outfit para titulares, porque su
 // geometría redonda acompaña las letras del logo DLC.
-const inter = Inter({ variable: "--font-inter", subsets: ["latin"], weight: ["300", "400", "500", "600"] });
-const outfit = Outfit({ variable: "--font-outfit", subsets: ["latin"], weight: ["300", "400", "500", "600", "700"] });
+const inter = Inter({ variable: "--font-inter", subsets: ["latin"], weight: ["300", "400", "500", "600", "700"] });
+const outfit = Outfit({ variable: "--font-outfit", subsets: ["latin"], weight: ["300", "400", "500", "600", "700", "800"] });
 
 const titulo = "Finca Algarrobo — Terrenos campestres a 15 min de Chiclayo | Grupo DLC";
 const descripcion =

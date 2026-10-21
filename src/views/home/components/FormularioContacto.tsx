@@ -2,9 +2,8 @@
 
 import { useId } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowRight, Check, Gift, Loader2, User, UserPlus } from "lucide-react";
+import { ArrowRight, Check, Gift, Loader2, User } from "lucide-react";
 import { INICIALES, PREGUNTAS } from "@/config/contenido";
-import { EASE } from "@/shared/lib/motion";
 import { abrirWhatsApp } from "@/shared/lib/whatsapp";
 import { useRegistro } from "./useRegistro";
 
@@ -186,41 +185,43 @@ export function FormularioContacto() {
         />
       </div>
 
-      {/* Botón CTA verde interactivo con micro-animaciones */}
-      <motion.button
+      {/* Botón CTA verde interactivo con animación lenta de latido */}
+      <button
         type="submit"
-        layout
         disabled={estado === "enviando" || estado === "enviado"}
         aria-live="polite"
-        whileHover={estado === "reposo" || estado === "error" ? { y: -2, scale: 1.01 } : undefined}
-        whileTap={estado === "reposo" || estado === "error" ? { scale: 0.98 } : undefined}
-        transition={{ layout: { duration: 0.35, ease: EASE } }}
-        className={`group mt-6 inline-flex h-14 w-full cursor-pointer items-center justify-center gap-2.5 rounded-2xl px-6 font-bold text-white shadow-[0_12px_28px_-6px_rgba(37,211,102,0.5)] transition-all disabled:cursor-default ${
+        className={`group mt-6 inline-flex h-13.5 w-full cursor-pointer items-center justify-center rounded-2xl px-4 font-display font-bold text-white shadow-[0_6px_18px_-4px_rgba(37,211,102,0.35)] transition-all duration-300 disabled:cursor-default ${
           estado === "enviado"
             ? "bg-[#1da851]"
-            : "bg-[#25D366] hover:bg-[#20bd5a] hover:shadow-[0_16px_32px_-6px_rgba(37,211,102,0.6)]"
+            : estado === "reposo" || estado === "error"
+              ? "cta-latido bg-[#25D366] hover:bg-[#20bd5a] active:scale-[0.99]"
+              : "bg-[#25D366]"
         }`}
       >
         <AnimatePresence mode="wait" initial={false}>
           {(estado === "reposo" || estado === "error") && (
             <motion.span
               key="reposo"
-              className="flex items-center justify-center gap-2.5 text-center text-sm leading-tight sm:text-base tracking-normal sm:tracking-wide uppercase"
+              className="flex items-center justify-center gap-2 sm:gap-2.5 text-[13px] sm:text-[15px] font-bold tracking-[0.01em] uppercase whitespace-nowrap"
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -8 }}
               transition={{ duration: 0.2 }}
             >
-              {/* En celular el texto ocupa dos líneas: sin el ícono de la izquierda cabe en el alto del botón. */}
-              <UserPlus className="hidden size-5 shrink-0 sm:block" aria-hidden="true" />
-              <span>{estado === "error" ? "Intentar de nuevo" : "Reclama tu descuento por WhatsApp"}</span>
-              <ArrowRight className="size-4.5 transition-transform duration-300 group-hover:translate-x-1" aria-hidden="true" />
+              <span className="text-base sm:text-lg leading-none select-none" aria-hidden="true">
+                💬
+              </span>
+              <span>{estado === "error" ? "Intentar de nuevo" : "Reclamar descuento en WhatsApp"}</span>
+              <ArrowRight
+                className="size-4 sm:size-4.5 shrink-0 stroke-[2.5] transition-transform duration-300 group-hover:translate-x-1"
+                aria-hidden="true"
+              />
             </motion.span>
           )}
           {estado === "enviando" && (
             <motion.span
               key="enviando"
-              className="flex items-center gap-2.5 text-sm sm:text-base"
+              className="flex items-center gap-2.5 text-sm sm:text-base font-bold"
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -8 }}
@@ -233,7 +234,7 @@ export function FormularioContacto() {
           {estado === "enviado" && (
             <motion.span
               key="enviado"
-              className="flex items-center gap-2.5 text-sm sm:text-base text-center"
+              className="flex items-center gap-2.5 text-sm sm:text-base font-bold text-center"
               initial={{ opacity: 0, scale: 0.8 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0 }}
@@ -244,7 +245,7 @@ export function FormularioContacto() {
             </motion.span>
           )}
         </AnimatePresence>
-      </motion.button>
+      </button>
 
       <AnimatePresence>
         {estado === "error" && (

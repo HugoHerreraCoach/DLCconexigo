@@ -3,7 +3,7 @@
 import { useEffect, useId, useState } from "react";
 import Image from "next/image";
 import { AnimatePresence, motion } from "framer-motion";
-import { Check, Loader2, User, UserPlus, X } from "lucide-react";
+import { ArrowRight, Check, Loader2, User, X } from "lucide-react";
 import { INICIALES, PREGUNTAS } from "@/config/contenido";
 import { abrirWhatsApp } from "@/shared/lib/whatsapp";
 import { IconoWhatsApp } from "@/shared/ui/IconoWhatsApp";
@@ -267,25 +267,35 @@ export function WhatsAppFlotante() {
                 form={idFormulario}
                 disabled={ocupado}
                 aria-live="polite"
-                className={`inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl text-sm font-semibold text-white shadow-sm transition-all enabled:hover:bg-[#20bd5a] enabled:active:scale-[0.98] disabled:cursor-default ${
-                  estado === "enviado" ? "bg-[#1da851]" : "bg-[#25D366]"
+                className={`group inline-flex h-11.5 w-full cursor-pointer items-center justify-center rounded-xl px-3 font-display font-bold text-white shadow-sm transition-all duration-300 disabled:cursor-default ${
+                  estado === "enviado"
+                    ? "bg-[#1da851]"
+                    : estado === "reposo" || estado === "error"
+                      ? "cta-latido bg-[#25D366] hover:bg-[#20bd5a] active:scale-[0.99]"
+                      : "bg-[#25D366]"
                 }`}
               >
                 {estado === "enviando" ? (
-                  <>
+                  <span className="flex items-center gap-2 text-xs sm:text-sm font-bold">
                     <Loader2 className="size-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />
                     Registrando tus datos…
-                  </>
+                  </span>
                 ) : estado === "enviado" ? (
-                  <>
-                    <Check className="size-4" strokeWidth={3} aria-hidden="true" />
+                  <span className="flex items-center gap-2 text-xs sm:text-sm font-bold">
+                    <Check className="size-4 shrink-0" strokeWidth={3} aria-hidden="true" />
                     ¡Listo! Abriendo WhatsApp…
-                  </>
+                  </span>
                 ) : (
-                  <>
-                    <UserPlus className="size-4" aria-hidden="true" />
-                    {estado === "error" ? "Intentar de nuevo" : "Registrarme ahora"}
-                  </>
+                  <span className="flex items-center justify-center gap-2 text-xs sm:text-[13px] font-bold tracking-[0.01em] uppercase whitespace-nowrap">
+                    <span className="text-sm sm:text-base leading-none select-none" aria-hidden="true">
+                      💬
+                    </span>
+                    <span>{estado === "error" ? "Intentar de nuevo" : "Reclamar descuento en WhatsApp"}</span>
+                    <ArrowRight
+                      className="size-3.5 sm:size-4 shrink-0 stroke-[2.5] transition-transform duration-300 group-hover:translate-x-1"
+                      aria-hidden="true"
+                    />
+                  </span>
                 )}
               </button>
               {estado === "error" && (

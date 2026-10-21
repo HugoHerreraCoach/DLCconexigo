@@ -109,8 +109,36 @@ select:focus-visible {
   animation: brillo-dorado 7s ease-in-out infinite;
 }
 
+@keyframes latido-cta {
+  0%, 100% {
+    transform: scale(1);
+  }
+  22% {
+    transform: scale(1.012);
+  }
+  38% {
+    transform: scale(1.003);
+  }
+  54% {
+    transform: scale(1.008);
+  }
+  80% {
+    transform: scale(1);
+  }
+}
+
+.cta-latido {
+  animation: latido-cta 5.2s ease-in-out infinite;
+  will-change: transform;
+}
+
+.cta-latido:hover {
+  animation-play-state: paused;
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .texto-dorado-animado {
+  .texto-dorado-animado,
+  .cta-latido {
     animation: none;
   }
 }
