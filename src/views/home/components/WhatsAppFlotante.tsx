@@ -100,20 +100,11 @@ function PreguntaChat<T extends string>({
 
 export function WhatsAppFlotante() {
   const [abierto, setAbierto] = useState(false);
-  const [burbujaVisible, setBurbujaVisible] = useState(false);
   const { campos, errores, estado, whatsapp, actualizar, enviar: registrar } = useRegistro("chat-flotante-registro");
   const idFormulario = useId();
   const idNombre = useId();
   const idCelular = useId();
   const idInicial = useId();
-
-  // Muestra un globo sugerente después de 3 segundos si aún no se abrió el chat
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setBurbujaVisible(true);
-    }, 3000);
-    return () => clearTimeout(timer);
-  }, []);
 
   // Cerrar con Escape
   useEffect(() => {
@@ -127,7 +118,6 @@ export function WhatsAppFlotante() {
 
   const abrirChat = () => {
     setAbierto((prev) => !prev);
-    setBurbujaVisible(false);
   };
 
   const enviar = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -324,81 +314,35 @@ export function WhatsAppFlotante() {
         )}
       </AnimatePresence>
 
-      {/* Globo informativo emergente inicial cuando el chat está cerrado */}
-      <AnimatePresence>
-        {!abierto && burbujaVisible && (
-          <motion.div
-            initial={{ opacity: 0, y: 10, scale: 0.95 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 10, scale: 0.95 }}
-            transition={{ duration: 0.3 }}
-            className="mb-2 relative flex items-center gap-2 rounded-2xl border border-white/15 bg-neutral-900/95 px-3.5 py-2 text-xs text-neutral-200 shadow-xl backdrop-blur-md"
-          >
-            <span>
-              👋 ¡Hola! ¿Deseas información de los lotes?
-            </span>
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                setBurbujaVisible(false);
-              }}
-              className="text-neutral-400 hover:text-white"
-              aria-label="Cerrar sugerencia"
-            >
-              <X className="size-3.5" />
-            </button>
-            {/* Pequeño pico hacia el botón */}
-            <span className="absolute -bottom-1.5 right-8 size-3 rotate-45 border-r border-b border-white/15 bg-neutral-900/95" />
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Botón flotante tipo Widget: Pill con Avatar, ASESOR EN LÍNEA y ¡Hablemos! 👋 */}
+      {/* Burbuja compacta «Asesor en línea» (se despliega solo al hacer clic) */}
       <button
         type="button"
         onClick={abrirChat}
         aria-expanded={abierto}
-        aria-label="Abrir chat con asesor en línea"
-        className="group relative flex items-center gap-3 rounded-full border border-neutral-200/90 bg-white/95 py-1.5 pr-4 pl-1.5 shadow-[0_14px_36px_rgba(0,0,0,0.45)] backdrop-blur-md transition-all duration-300 hover:scale-[1.03] hover:shadow-[0_18px_44px_rgba(0,0,0,0.6)] active:scale-95 text-left cursor-pointer"
+        aria-label={abierto ? "Cerrar chat con asesor en línea" : "Abrir chat con asesor en línea"}
+        className="group relative flex items-center gap-2 rounded-full border border-white/15 bg-neutral-950/90 py-1.5 pr-3.5 pl-1.5 shadow-[0_10px_28px_rgba(0,0,0,0.55)] backdrop-blur-md transition-all duration-300 hover:border-dlc/50 hover:scale-[1.03] active:scale-95 text-left cursor-pointer"
       >
-        {/* Avatar con anillo y punto verde indicador activo */}
-        <div className="relative size-12 sm:size-13 shrink-0 overflow-hidden rounded-full ring-2 ring-[#fdb90c] shadow-sm">
+        <div className="relative size-8.5 sm:size-9.5 shrink-0 overflow-hidden rounded-full ring-1.5 ring-dlc/80">
           <Image
             src="/brand/asesora.jpg"
-            alt="Asesora en línea"
+            alt="Asesor en línea"
             fill
-            sizes="52px"
-            className="object-cover transition-transform duration-500 group-hover:scale-105"
+            sizes="38px"
+            className="object-cover"
           />
-          {/* Indicador verde de en línea con animación de pulso */}
-          <span className="absolute bottom-0 right-0 flex size-3.5 items-center justify-center">
+          <span className="absolute bottom-0 right-0 flex size-2.5 items-center justify-center">
             <span className="absolute inline-flex size-full animate-ping rounded-full bg-[#10b981] opacity-75" />
-            <span className="relative inline-flex size-3 rounded-full border-2 border-white bg-[#10b981]" />
+            <span className="relative inline-flex size-2 rounded-full border border-neutral-950 bg-[#10b981]" />
           </span>
         </div>
 
-        {/* Textos del widget: EN LÍNEA y ¡Hablemos! 👋 */}
-        <div className="flex flex-col leading-tight pl-0.5">
-          <span className="flex items-center gap-1.5 text-[10px] font-extrabold tracking-wider text-[#059669] uppercase sm:text-[11px]">
-            <span className="size-1.5 rounded-full bg-[#10b981] animate-pulse" />
-            ASESOR EN LÍNEA
-          </span>
-          <span className="font-display text-sm sm:text-[15px] font-extrabold text-neutral-900 flex items-center gap-1">
-            ¡Hablemos!
-            <motion.span
-              animate={{ rotate: [0, 16, -10, 16, 0] }}
-              transition={{ repeat: Infinity, duration: 1.5, repeatDelay: 2.5 }}
-              className="inline-block origin-bottom-right"
-            >
-              👋
-            </motion.span>
-          </span>
-        </div>
+        <span className="flex items-center gap-1.5 text-[11px] sm:text-xs font-semibold tracking-wide text-white whitespace-nowrap">
+          <span className="size-1.5 rounded-full bg-[#10b981]" aria-hidden="true" />
+          Asesor en línea
+        </span>
 
-        {/* Icono de WhatsApp en la pastilla */}
-        <span className="ml-1 flex size-8 shrink-0 items-center justify-center rounded-full bg-[#25D366] text-white shadow-[0_2px_8px_rgba(37,211,102,0.4)] transition-transform duration-300 group-hover:rotate-12 group-hover:scale-110 sm:size-8.5">
-          <IconoWhatsApp className="size-4.5" />
+        <span className="flex size-6.5 shrink-0 items-center justify-center rounded-full bg-[#25D366] text-white shadow-xs transition-transform duration-300 group-hover:scale-105">
+          <IconoWhatsApp className="size-3.5" />
         </span>
       </button>
     </div>

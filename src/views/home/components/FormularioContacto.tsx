@@ -1,6 +1,6 @@
 "use client";
 
-import { useId } from "react";
+import { useEffect, useId, useRef } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { ArrowRight, Check, Gift, Loader2, User } from "lucide-react";
 import { INICIALES, PREGUNTAS } from "@/config/contenido";
@@ -88,6 +88,23 @@ export function FormularioContacto() {
   const idNombre = useId();
   const idCelular = useId();
   const idInicial = useId();
+  const inputNombreRef = useRef<HTMLInputElement>(null);
+
+  // Autoenfoque en el primer campo cuando el usuario hace clic en cualquier enlace a #formulario
+  useEffect(() => {
+    const manejarClic = (e: MouseEvent) => {
+      const destino = (e.target as HTMLElement | null)?.closest?.('a[href="#formulario"]');
+      if (!destino) return;
+      e.preventDefault();
+      const formEl = document.getElementById("formulario");
+      formEl?.scrollIntoView({ behavior: "smooth", block: "center" });
+      window.setTimeout(() => {
+        inputNombreRef.current?.focus({ preventScroll: true });
+      }, 420);
+    };
+    document.addEventListener("click", manejarClic);
+    return () => document.removeEventListener("click", manejarClic);
+  }, []);
 
   const enviar = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -132,6 +149,7 @@ export function FormularioContacto() {
           >
             <User className="size-4.5 text-neutral-400 shrink-0 mr-2.5" />
             <input
+              ref={inputNombreRef}
               id={idNombre}
               autoComplete="name"
               placeholder="Nombre y apellidos*"

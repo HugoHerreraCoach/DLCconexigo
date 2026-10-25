@@ -51,8 +51,12 @@ export function CarruselHero() {
 
   return (
     <div className="flex flex-col w-full">
-      {/* Marco principal de la foto con esquinas redondeadas tipo mockup */}
-      <div className="relative aspect-[16/10] sm:aspect-[4/3] w-full overflow-hidden rounded-[1.75rem] sm:rounded-[2rem] border border-white/15 bg-neutral-950 shadow-2xl">
+      {/* Marco principal de la foto con esquinas redondeadas tipo mockup (clicable hacia #formulario) */}
+      <a
+        href="#formulario"
+        aria-label={`Ver ${fotoActual.etiqueta} e ir al formulario de registro`}
+        className="group relative block aspect-[16/10] sm:aspect-[4/3] w-full overflow-hidden rounded-[1.75rem] sm:rounded-[2rem] border border-white/15 bg-neutral-950 shadow-2xl cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-dlc"
+      >
         <AnimatePresence mode="wait">
           <motion.div
             key={fotoActual.src}
@@ -68,7 +72,7 @@ export function CarruselHero() {
               fill
               priority
               sizes="(min-width: 1024px) 50vw, 100vw"
-              className="object-cover"
+              className="object-cover transition-transform duration-500 group-hover:scale-[1.02]"
             />
           </motion.div>
         </AnimatePresence>
@@ -80,7 +84,7 @@ export function CarruselHero() {
         />
 
         {/* Badge inferior izquierdo con ubicación / concepto */}
-        <div className="absolute bottom-3 left-3 sm:bottom-4 sm:left-4 z-10 flex items-center gap-2 rounded-full bg-neutral-950/85 px-3.5 py-1.5 text-xs sm:text-sm font-semibold text-white backdrop-blur-md border border-white/15 shadow-lg">
+        <div className="absolute bottom-3 left-3 sm:bottom-4 sm:left-4 z-10 flex items-center gap-2 rounded-full bg-neutral-950/85 px-3.5 py-1.5 text-xs sm:text-sm font-semibold text-white backdrop-blur-md border border-white/15 shadow-lg transition-colors group-hover:border-dlc/50">
           <MapPin className="size-3.5 sm:size-4 text-dlc shrink-0" aria-hidden="true" />
           <span>{fotoActual.etiqueta}</span>
         </div>
@@ -89,7 +93,7 @@ export function CarruselHero() {
         <div className="absolute top-3 right-3 sm:top-4 sm:right-4 z-10 rounded-full bg-neutral-950/70 px-2.5 py-1 text-[11px] font-medium text-neutral-300 backdrop-blur-md border border-white/10">
           {activo + 1} / {FOTOS_PROYECTO_HERO.length}
         </div>
-      </div>
+      </a>
 
       {/* Tira de 4 miniaturas interactivas */}
       <div className="mt-3 sm:mt-4 grid grid-cols-4 gap-2 sm:gap-3">
