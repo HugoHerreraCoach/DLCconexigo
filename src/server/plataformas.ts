@@ -219,10 +219,17 @@ async function graph<T extends { error?: { message?: string } }>(ruta: string, t
 
 const NOMBRES_TTL_MS = 3_600_000;
 const nombresCampana = new Map<string, { nombre: string | null; vence: number }>();
+const NOMBRES_CAMPANA_CONOCIDOS: Record<string, string> = {
+  "120252205044720776": "C_TEST_NVNRO_CONEXIPEMA_FINCAALGARROBO_LANDING",
+  "120252205041450776": "C_TEST_NVNRO_CONEXIPEMA_FINCAALGARROBO_WHATSAPP",
+  "120253059641580494": "C_04_CONEXIPEMA_FINCAALGARROBO_LANDING",
+  "120253305941620494": "C_NVNRO_CONEXIPEMA_FINCAALGARROBO_WHATSAPP -",
+};
 
 /** null si no hay token, el id no es una campaña de la cuenta o Meta no
  *  responde en 2,5 s: el formulario nunca falla ni espera más por esto. */
 export async function nombreCampanaMeta(id: string): Promise<string | null> {
+  if (NOMBRES_CAMPANA_CONOCIDOS[id]) return NOMBRES_CAMPANA_CONOCIDOS[id];
   const token = process.env.META_ACCESS_TOKEN;
   if (!token || !/^\d{6,25}$/.test(id)) return null;
   const guardado = nombresCampana.get(id);
