@@ -10,6 +10,10 @@ import { registrar } from "@/shared/lib/registro";
      guardado como fila en la hoja de cálculo de leads: /api/formulario responde
      ok después de que Google confirma la fila y recién entonces useRegistro llama
      a clientePotencial(). Nunca antes.
+   · El servidor envía la misma conversión, con el mismo id de evento, a la API
+     de conversiones de Meta y a la Events API de TikTok (src/server/pixeles-servidor.ts,
+     docs/0026): en celular, al saltar a WhatsApp se pierde parte de los envíos
+     del navegador. Cada plataforma se queda con una sola copia.
    · `Lead` (Meta) y `SubmitForm` (TikTok, que lo muestra como «Lead») quedaron en
      desuso: la landing ya no los envía.
    · Un clic a WhatsApp no emite conversión: ahí se registra solo la
@@ -32,16 +36,26 @@ const CONTENIDO = { content_name: "Finca Algarrobo", content_category: "Terrenos
 /** Evento de conversión de la landing en los dos píxeles. */
 export const EVENTO_REGISTRO = "CompleteRegistration";
 
+/** Datos del evento de registro en cada plataforma. Los usan el navegador y el
+ *  servidor (src/server/pixeles-servidor.ts), para que las dos copias sean iguales. */
+export const datosRegistroMeta = (id: IdRastro, datos?: Record<string, string>) => ({
+  ...CONTENIDO,
+  ...datos,
+  origen: id,
+  rastro: RASTROS[id].nombre,
+});
+export const datosRegistroTikTok = (id: IdRastro) => ({ ...CONTENIDO, description: RASTROS[id].nombre });
+
 /** Conversión en los píxeles: `CompleteRegistration` en Meta y en TikTok.
  *  Llamar SOLO con la fila ya confirmada en la hoja. `registroId` es el id del
- *  envío (columna «TikTok Lead ID» de la hoja) y va como id del evento, para
- *  deduplicar si luego se envía también desde el servidor.
- *  Sin nombre ni celular: los píxeles no reciben datos personales. */
+ *  envío (columna «TikTok Lead ID» de la hoja) y va como id del evento: el
+ *  servidor manda la misma conversión con el mismo id y cada plataforma se
+ *  queda con una sola copia. Sin nombre ni celular: el navegador no envía datos
+ *  personales (el servidor manda solo el hash del celular). */
 export function clientePotencial(id: IdRastro, registroId: string, datos?: Record<string, string>) {
-  const rastro = RASTROS[id].nombre;
   try {
-    window.fbq?.("track", EVENTO_REGISTRO, { ...CONTENIDO, ...datos, origen: id, rastro }, { eventID: registroId });
-    window.ttq?.track(EVENTO_REGISTRO, { ...CONTENIDO, description: rastro }, { event_id: registroId });
+    window.fbq?.("track", EVENTO_REGISTRO, datosRegistroMeta(id, datos), { eventID: registroId });
+    window.ttq?.track(EVENTO_REGISTRO, datosRegistroTikTok(id), { event_id: registroId });
   } catch {
     /* la medición nunca debe romper la página */
   }
