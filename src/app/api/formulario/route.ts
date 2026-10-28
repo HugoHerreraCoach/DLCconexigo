@@ -7,6 +7,8 @@ import { huellaNombre, huellaTelefono } from "@/server/nombre-huella";
 import { registroPorServidor, visitaDe } from "@/server/pixeles-servidor";
 import { nombreCampanaMeta } from "@/server/plataformas";
 import { celularPeru, FORMULARIOS } from "@/shared/lib/formulario";
+import { plantillaDe } from "@/shared/lib/plantillas";
+import { mensajeRegistro } from "@/shared/lib/whatsapp";
 
 /* Formularios de registro (hero y chat flotante) → hoja de cálculo de leads
    (src/server/hoja-calculo.ts). La respuesta se agrega como fila en la hoja y
@@ -128,12 +130,15 @@ export async function POST(req: Request) {
   after(() => registroPorServidor({ id, origen, celular, inicial, fecha, visita }));
 
   // Registro propio para el panel. Si falla, el lead ya está en la hoja: no se le dice al visitante que falló.
+  // La plantilla del mensaje con que termina el registro (docs/0027): cuando ese mensaje llega a
+  // WhatsApp, el CRM pregunta a /api/whatsapp/mensaje de dónde vino y la landing lo encuentra por
+  // plantilla + huella del nombre. Sin ella el CRM no recibe la fuente y muestra «Directo».
   if (sql) {
     try {
       await sql`
-        INSERT INTO eventos (tipo, visitante, fuente, campana, origen, movil, datos, nombre_huella, telefono_huella, intencion_id)
+        INSERT INTO eventos (tipo, visitante, fuente, campana, origen, movil, datos, plantilla, nombre_huella, telefono_huella, intencion_id)
         VALUES ('lead', ${texto(cuerpo.visitante, 64) ?? "desconocido"}, ${fuente}, ${campana}, ${origen}, ${cuerpo.movil === true},
-                ${sql.json({ inicial })}, ${huellaNombre(nombre)}, ${huellaTelefono(celular)}, ${id})
+                ${sql.json({ inicial })}, ${plantillaDe(mensajeRegistro(nombre, inicial))}, ${huellaNombre(nombre)}, ${huellaTelefono(celular)}, ${id})
         ON CONFLICT DO NOTHING`;
     } catch (e) {
       console.error("[formulario] la fila está en la hoja pero no se guardó en eventos", e);

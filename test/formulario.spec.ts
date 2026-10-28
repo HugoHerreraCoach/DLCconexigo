@@ -39,6 +39,7 @@ const correrDespues = () => Promise.all(state.despues.splice(0).map((fn) => fn()
 import { POST } from "../src/app/api/formulario/route";
 import { INICIAL_POR_DEFECTO, INICIALES, PREGUNTAS } from "../src/config/contenido";
 import { agregarFila, COLUMNAS, filaLead } from "../src/server/hoja-calculo";
+import { huellaNombre } from "../src/server/nombre-huella";
 import { celularPeru, enviarFormulario } from "../src/shared/lib/formulario";
 import { clientePotencial, datosRegistroMeta, datosRegistroTikTok, rastrearContacto } from "../src/shared/lib/pixeles";
 import { nombreDe, plantillaDe } from "../src/shared/lib/plantillas";
@@ -256,6 +257,26 @@ describe("Formulario del hero → hoja de cálculo → «Cliente potencial»", (
     const insercion = state.consultas.find((c) => c.query.includes("INSERT INTO eventos"));
     expect(insercion?.values).toContain("chat-flotante-registro");
     expect(insercion?.values).not.toContain("formulario-hero");
+  });
+
+  it("guarda la plantilla y la huella del nombre del mensaje de WhatsApp, para que el CRM reciba la fuente (0027)", async () => {
+    process.env.CONEXIGO_WEBHOOK_SECRET = "secreto-de-prueba";
+    try {
+      mockGoogle();
+      await POST(pedir({ ...VALIDO, fuente: "tiktok" }));
+      const insercion = state.consultas.find((c) => c.query.includes("INSERT INTO eventos"));
+      expect(insercion?.query).toContain("plantilla");
+
+      // Lo que llega a WhatsApp (con la marca «L - ») y el CRM reenvía a /api/whatsapp/mensaje.
+      const texto = new URL(enlaceWhatsApp(mensajeRegistro("Ana Pérez", "Desde S/.5 mil"))).searchParams.get("text")!;
+      expect(plantillaDe(texto)).toBe("general");
+      expect(insercion?.values).toContain("general");
+      // Misma huella del nombre: el emparejamiento es exacto («nombre»), aunque se escribiera con espacios de más.
+      expect(insercion?.values).toContain(huellaNombre(nombreDe(texto)));
+      expect(insercion?.values).toContain("tiktok");
+    } finally {
+      delete process.env.CONEXIGO_WEBHOOK_SECRET;
+    }
   });
 
   const filaEscrita = (fetchMock: any) => JSON.parse(llamadasA(fetchMock, "https://sheets.googleapis.com/")[0][1].body).values[0];
