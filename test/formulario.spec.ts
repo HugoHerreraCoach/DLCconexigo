@@ -227,8 +227,10 @@ describe("Formulario del hero → hoja de cálculo → «Cliente potencial»", (
     expect(fila[COLUMNAS.indexOf("NUMERO")]).toBe("+51 987 654 321");
     expect(fila[COLUMNAS.indexOf("INICIAL")]).toBe("Desde S/.5 mil");
     expect(fila[COLUMNAS.indexOf("TIEMPO DE COMPRA")]).toBe("");
-    // Sin META_ACCESS_TOKEN no se busca el nombre: la fila igual se escribe, con el id de la campaña.
-    expect(fila[COLUMNAS.indexOf("NOMBRE DE CAMPAÑA")]).toBe(VALIDO.campana);
+    // Campaña conocida (NOMBRES_CAMPANA_CONOCIDOS en src/server/plataformas.ts): el nombre sale de la
+    // tabla, sin META_ACCESS_TOKEN ni llamada a Meta.
+    expect(fila[COLUMNAS.indexOf("NOMBRE DE CAMPAÑA")]).toBe("C_04_CONEXIPEMA_FINCAALGARROBO_LANDING");
+    expect(llamadasA(fetchMock, "https://graph.facebook.com/")).toHaveLength(0);
     expect(fila[COLUMNAS.indexOf("FUENTE")]).toBe("meta");
     expect(fila[COLUMNAS.indexOf("TikTok Lead ID")]).toBe(VALIDO.id);
     // Sin `origen` en el cuerpo es el formulario del hero.
@@ -297,7 +299,11 @@ describe("Formulario del hero → hoja de cálculo → «Cliente potencial»", (
     expect(graph).toHaveBeenCalledTimes(1);
   });
 
-  it("Meta: si su API falla o la campaña es de otra cuenta, la fila igual se escribe, con el id de la campaña", async () => {
+  it("Meta: sin token, si su API falla o la campaña es de otra cuenta, la fila igual se escribe, con el id de la campaña", async () => {
+    const sinToken = mockGoogle();
+    expect((await POST(pedir({ ...VALIDO, campana: "120253059641580004" }))).status).toBe(200);
+    expect(filaEscrita(sinToken)[COLUMNAS.indexOf("NOMBRE DE CAMPAÑA")]).toBe("120253059641580004");
+
     process.env.META_ACCESS_TOKEN = "token-meta";
     const caida = mockGoogle(FILA_OK, 200, () => Response.json({ error: { message: "Session has expired" } }, { status: 400 }));
     expect((await POST(pedir({ ...VALIDO, campana: "120253059641580002" }))).status).toBe(200);

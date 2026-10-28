@@ -53,7 +53,7 @@ Ni el nombre ni el celular se guardan en claro (solo sus huellas, como en 0013).
 | Archivo | Cambio |
 | --- | --- |
 | `src/app/api/formulario/route.ts` | El evento `lead` guarda también `plantilla`. Imports de `plantillaDe` y `mensajeRegistro`. |
-| `test/formulario.spec.ts` | Prueba nueva: el `INSERT` lleva la plantilla `general`, la huella del nombre que la landing saca del texto del enlace de WhatsApp y la fuente `tiktok`. |
+| `test/formulario.spec.ts` | Prueba nueva: el `INSERT` lleva la plantilla `general`, la huella del nombre que la landing saca del texto del enlace de WhatsApp y la fuente `tiktok`. Además, en `main`, la prueba de la fila se ajusta a la tabla de nombres conocidos de `419dd04`. |
 
 ## Cómo se verificó
 
@@ -63,6 +63,11 @@ Ni el nombre ni el celular se guardan en claro (solo sus huellas, como en 0013).
 - `npx tsc --noEmit` y `eslint` sobre los archivos tocados: sin errores ni avisos.
 - Antes del merge se revisaron los dos commits nuevos de `main` (Isa, 2026-10-24: `b038f94` carrusel y
   chat, `419dd04` nombres de campañas de Meta): no tocan `route.ts` ni el mensaje de WhatsApp.
+- Tras el merge falló 1 prueba que ya fallaba en `main` desde `419dd04`: esa tabla de nombres conocidos
+  (`NOMBRES_CAMPANA_CONOCIDOS`) incluye `120253059641580494`, el id de ejemplo de las pruebas, y la prueba
+  esperaba el id en vez del nombre. Se ajustó la prueba al comportamiento nuevo (nombre de la tabla, sin
+  llamar a Meta) y el caso «id desconocido sin token → queda el id» pasó a la prueba de al lado. Con eso:
+  54 pruebas verdes, `tsc` y `eslint` limpios y `next build` compila sobre `main`.
 - **No se hizo ningún registro de prueba** (pedido del usuario: verificar solo con datos reales).
 
 ## Pendientes
