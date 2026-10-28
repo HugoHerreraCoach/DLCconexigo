@@ -1,9 +1,11 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { createVerify, generateKeyPairSync } from "node:crypto";
+import { createHash, createVerify, generateKeyPairSync } from "node:crypto";
 
 const state = vi.hoisted(() => {
   const consultas: { query: string; values: any[] }[] = [];
+  // Lo que la ruta deja para después de responder (after de next/server).
+  const despues: (() => unknown)[] = [];
   let previas: any[] = [];
   const sqlFn: any = Object.assign(
     async (strings: TemplateStringsArray, ...values: any[]) => {
@@ -16,23 +18,30 @@ const state = vi.hoisted(() => {
   return {
     sqlFn,
     consultas,
+    despues,
     setPrevias: (filas: any[]) => {
       previas = filas;
     },
     reset: () => {
       consultas.length = 0;
+      despues.length = 0;
       previas = [];
     },
   };
 });
 
 vi.mock("@/server/db", () => ({ sql: state.sqlFn, asegurarEsquema: vi.fn() }));
+vi.mock("next/server", () => ({ after: (fn: () => unknown) => state.despues.push(fn) }));
+
+/** Corre lo que la ruta dejó para después de responder. */
+const correrDespues = () => Promise.all(state.despues.splice(0).map((fn) => fn()));
 
 import { POST } from "../src/app/api/formulario/route";
 import { INICIAL_POR_DEFECTO, INICIALES, PREGUNTAS } from "../src/config/contenido";
 import { agregarFila, COLUMNAS, filaLead } from "../src/server/hoja-calculo";
+import { huellaNombre } from "../src/server/nombre-huella";
 import { celularPeru, enviarFormulario } from "../src/shared/lib/formulario";
-import { clientePotencial, rastrearContacto } from "../src/shared/lib/pixeles";
+import { clientePotencial, datosRegistroMeta, datosRegistroTikTok, rastrearContacto } from "../src/shared/lib/pixeles";
 import { nombreDe, plantillaDe } from "../src/shared/lib/plantillas";
 import { enlaceWhatsApp, MARCA_LANDING, mensajeRegistro } from "../src/shared/lib/whatsapp";
 import { ESPERA_WHATSAPP_MS, terminarRegistro } from "../src/views/home/components/useRegistro";
@@ -46,13 +55,14 @@ const { privateKey, publicKey } = generateKeyPairSync("rsa", {
 const FILA_OK = { updates: { updatedRange: "'Hoja 1'!A20:L20", updatedRows: 1 } };
 
 /** fetch falso: responde el token de Google y el append de Sheets según la URL
- *  (y la API de Meta, si se le pasa `graph`). */
-function mockGoogle(append: unknown = FILA_OK, status = 200, graph?: (url: string) => Response) {
+ *  (y la API de Meta o la de TikTok, si se le pasa `graph` o `tiktok`). */
+function mockGoogle(append: unknown = FILA_OK, status = 200, graph?: (url: string) => Response, tiktok?: (url: string) => Response) {
   const fetchMock = vi.fn(async (url: string | URL) => {
     const u = String(url);
     if (u.startsWith("https://oauth2.googleapis.com/token")) return Response.json({ access_token: "tok-123", expires_in: 3600 });
     if (u.startsWith("https://sheets.googleapis.com/")) return Response.json(append, { status });
     if (graph && u.startsWith("https://graph.facebook.com/")) return graph(u);
+    if (tiktok && u.startsWith("https://business-api.tiktok.com/")) return tiktok(u);
     throw new Error(`url inesperada: ${u}`);
   });
   globalThis.fetch = fetchMock as any;
@@ -70,6 +80,8 @@ function configurarHoja() {
   process.env.GOOGLE_SHEETS_PRIVATE_KEY = privateKey.replace(/\n/g, "\\n");
   delete process.env.GOOGLE_SHEETS_HOJA;
   delete process.env.META_ACCESS_TOKEN;
+  delete process.env.META_CAPI_TOKEN;
+  delete process.env.TIKTOK_EVENTS_API_TOKEN;
 }
 
 const VALIDO = {
@@ -247,6 +259,26 @@ describe("Formulario del hero → hoja de cálculo → «Cliente potencial»", (
     expect(insercion?.values).not.toContain("formulario-hero");
   });
 
+  it("guarda la plantilla y la huella del nombre del mensaje de WhatsApp, para que el CRM reciba la fuente (0027)", async () => {
+    process.env.CONEXIGO_WEBHOOK_SECRET = "secreto-de-prueba";
+    try {
+      mockGoogle();
+      await POST(pedir({ ...VALIDO, fuente: "tiktok" }));
+      const insercion = state.consultas.find((c) => c.query.includes("INSERT INTO eventos"));
+      expect(insercion?.query).toContain("plantilla");
+
+      // Lo que llega a WhatsApp (con la marca «L - ») y el CRM reenvía a /api/whatsapp/mensaje.
+      const texto = new URL(enlaceWhatsApp(mensajeRegistro("Ana Pérez", "Desde S/.5 mil"))).searchParams.get("text")!;
+      expect(plantillaDe(texto)).toBe("general");
+      expect(insercion?.values).toContain("general");
+      // Misma huella del nombre: el emparejamiento es exacto («nombre»), aunque se escribiera con espacios de más.
+      expect(insercion?.values).toContain(huellaNombre(nombreDe(texto)));
+      expect(insercion?.values).toContain("tiktok");
+    } finally {
+      delete process.env.CONEXIGO_WEBHOOK_SECRET;
+    }
+  });
+
   const filaEscrita = (fetchMock: any) => JSON.parse(llamadasA(fetchMock, "https://sheets.googleapis.com/")[0][1].body).values[0];
 
   it("Meta: con el id de utm_campaign la fila lleva el NOMBRE de la campaña (pedido una sola vez)", async () => {
@@ -322,6 +354,8 @@ describe("Formulario del hero → hoja de cálculo → «Cliente potencial»", (
     expect(res.status).toBe(502);
     expect((await res.json()).ok).toBe(false);
     expect(state.consultas.some((c) => c.query.includes("INSERT INTO eventos"))).toBe(false);
+    // Sin fila no hay conversión por servidor.
+    expect(state.despues).toHaveLength(0);
   });
 
   it("un reintento con el mismo id no vuelve a escribir en la hoja", async () => {
@@ -331,6 +365,8 @@ describe("Formulario del hero → hoja de cálculo → «Cliente potencial»", (
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ ok: true, id: VALIDO.id });
     expect(llamadasA(fetchMock, "https://sheets.googleapis.com/")).toHaveLength(0);
+    // La conversión por servidor ya salió con el primer envío.
+    expect(state.despues).toHaveLength(0);
   });
 
   it("enviarFormulario solo resuelve cuando el servidor confirma la fila", async () => {
@@ -376,7 +412,30 @@ describe("Formulario del hero → hoja de cálculo → «Cliente potencial»", (
       fuente: "tiktok",
       campana: "C_01_CONEXIPEMA_FINCAALGARROBO_LANDING",
       campana_id: "1877891583735969",
+      // Para la conversión por servidor (0026).
+      ttclid: "E.C.P.abc",
+      fbc: null,
     });
+  });
+
+  it("enviarFormulario manda el fbclid de Meta como fbc (fb.1.<ms>.<fbclid>)", async () => {
+    (globalThis as any).window = {
+      localStorage: { getItem: vi.fn(), setItem: vi.fn() },
+      sessionStorage: { getItem: vi.fn(), setItem: vi.fn() },
+      matchMedia: vi.fn().mockReturnValue({ matches: false }),
+    };
+    vi.stubGlobal("location", { search: "?utm_source=fb&utm_campaign=120253059641580494&fbclid=IwAR-ejemplo_1", hostname: "grupodlc.conexigo.com" });
+    const fetchOk = vi.fn(async (_url: string, init: any) => Response.json({ ok: true, id: JSON.parse(init.body).id }));
+    globalThis.fetch = fetchOk as any;
+    try {
+      await enviarFormulario("reg-4", { nombre: "Ana Pérez", celular: "987654321", inicial: "Desde S/.5 mil" });
+    } finally {
+      vi.unstubAllGlobals();
+    }
+    const cuerpo = JSON.parse(fetchOk.mock.calls[0][1].body);
+    expect(cuerpo.fuente).toBe("meta");
+    expect(cuerpo.fbc).toMatch(/^fb\.1\.\d{13}\.IwAR-ejemplo_1$/);
+    expect(cuerpo.ttclid).toBeNull();
   });
 
   it("clientePotencial envía CompleteRegistration (Meta y TikTok) con el id del registro y sin datos personales", () => {
@@ -407,6 +466,160 @@ describe("Formulario del hero → hoja de cálculo → «Cliente potencial»", (
     expect(ttq.track).toHaveBeenCalledTimes(1);
     expect(fbq).not.toHaveBeenCalledWith("track", "Lead", expect.anything(), expect.anything());
     expect(ttq.track).not.toHaveBeenCalledWith("SubmitForm", expect.anything(), expect.anything());
+  });
+});
+
+describe("Conversión por servidor: API de conversiones de Meta y Events API de TikTok (0026)", () => {
+  const sha256 = (v: string) => createHash("sha256").update(v).digest("hex");
+  const META_OK = () => Response.json({ events_received: 1, fbtrace_id: "traza" });
+  const TIKTOK_OK = () => Response.json({ code: 0, message: "OK" });
+  const PAGINA = "https://grupodlc.conexigo.com/?utm_source=tiktok&utm_campaign=C_01&ttclid=E.C.P.abc";
+  const UA = "Mozilla/5.0 (Linux; Android 14; SM-A146M) AppleWebKit/537.36 Mobile Safari/537.36 trill_37";
+
+  /** Como llega desde la landing en producción: IP del visitante primero en
+   *  x-forwarded-for, la página en el referer y las cookies de los dos píxeles. */
+  const pedirDesdeAnuncio = (cuerpo: unknown) =>
+    new Request("https://grupodlc.conexigo.com/api/formulario", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "user-agent": UA,
+        "x-forwarded-for": "190.236.10.20, 10.0.0.1",
+        referer: PAGINA,
+        cookie: "_fbp=fb.1.1761300000000.123456789; _ttp=2abcTTPxyz; otra=1",
+      },
+      body: JSON.stringify(cuerpo),
+    });
+
+  beforeEach(() => {
+    vi.restoreAllMocks();
+    state.reset();
+    configurarHoja();
+    process.env.META_CAPI_TOKEN = "token-capi";
+    process.env.TIKTOK_EVENTS_API_TOKEN = "token-events";
+    vi.spyOn(console, "info").mockImplementation(() => {});
+  });
+
+  it("con la fila confirmada y después de responder, envía CompleteRegistration a Meta y TikTok con el id del registro", async () => {
+    const fetchMock = mockGoogle(FILA_OK, 200, META_OK, TIKTOK_OK);
+    const res = await POST(pedirDesdeAnuncio({ ...VALIDO, fuente: "tiktok", campana: "C_01", ttclid: "E.C.P.abc", fbc: "fb.1.1761300000000.IwAR-ejemplo" }));
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ ok: true, id: VALIDO.id });
+
+    // La respuesta no espera a Meta ni a TikTok: salen después.
+    expect(llamadasA(fetchMock, "https://graph.facebook.com/")).toHaveLength(0);
+    expect(llamadasA(fetchMock, "https://business-api.tiktok.com/")).toHaveLength(0);
+    expect(state.despues).toHaveLength(1);
+    expect(await correrDespues()).toEqual([{ meta: "enviado", tiktok: "enviado" }]);
+
+    const fecha = JSON.parse(llamadasA(fetchMock, "https://sheets.googleapis.com/")[0][1].body).values[0][COLUMNAS.indexOf("FECHA")];
+
+    const [[urlMeta, initMeta]] = llamadasA(fetchMock, "https://graph.facebook.com/");
+    expect(urlMeta).toBe("https://graph.facebook.com/v26.0/1409214864656514/events");
+    const form = initMeta.body as URLSearchParams;
+    expect(form.get("access_token")).toBe("token-capi");
+    const eventosMeta = JSON.parse(form.get("data")!);
+    expect(eventosMeta).toHaveLength(1);
+    expect(eventosMeta[0]).toEqual({
+      event_name: "CompleteRegistration",
+      event_time: fecha,
+      event_id: VALIDO.id,
+      action_source: "website",
+      event_source_url: PAGINA,
+      user_data: {
+        ph: [sha256("51987654321")],
+        client_ip_address: "190.236.10.20",
+        client_user_agent: UA,
+        fbp: "fb.1.1761300000000.123456789",
+        fbc: "fb.1.1761300000000.IwAR-ejemplo",
+      },
+      // Lo mismo que manda el navegador (clientePotencial).
+      custom_data: datosRegistroMeta("formulario-hero", { inicial: "Desde S/.5 mil" }),
+    });
+
+    const [[urlTikTok, initTikTok]] = llamadasA(fetchMock, "https://business-api.tiktok.com/");
+    expect(urlTikTok).toBe("https://business-api.tiktok.com/open_api/v1.3/event/track/");
+    expect(initTikTok.headers["Access-Token"]).toBe("token-events");
+    expect(JSON.parse(initTikTok.body)).toEqual({
+      event_source: "web",
+      event_source_id: "DAQ48QRC77U77GG14PMG",
+      data: [
+        {
+          event: "CompleteRegistration",
+          event_time: fecha,
+          event_id: VALIDO.id,
+          user: { ttclid: "E.C.P.abc", ttp: "2abcTTPxyz", phone: sha256("+51987654321"), ip: "190.236.10.20", user_agent: UA },
+          page: { url: PAGINA },
+          properties: datosRegistroTikTok("formulario-hero"),
+        },
+      ],
+    });
+
+    // Ni el nombre ni el celular en claro.
+    expect(`${form.get("data")} ${initTikTok.body}`).not.toMatch(/987654321|Ana/);
+  });
+
+  it("la cookie _fbc del píxel de Meta manda sobre el fbc que arma el navegador; los ids raros no se envían", async () => {
+    const fetchMock = mockGoogle(FILA_OK, 200, META_OK, TIKTOK_OK);
+    const pedido = pedirDesdeAnuncio({ ...VALIDO, fbc: "fb.1.1761300000000.del-navegador", ttclid: "con espacio" });
+    pedido.headers.set("cookie", "_fbc=fb.1.1761200000000.de-la-cookie; _ttp=");
+    await POST(pedido);
+    await correrDespues();
+
+    const meta = JSON.parse((llamadasA(fetchMock, "https://graph.facebook.com/")[0][1].body as URLSearchParams).get("data")!)[0];
+    expect(meta.user_data.fbc).toBe("fb.1.1761200000000.de-la-cookie");
+    expect(meta.user_data).not.toHaveProperty("fbp");
+    const { user } = JSON.parse(llamadasA(fetchMock, "https://business-api.tiktok.com/")[0][1].body).data[0];
+    expect(Object.keys(user).sort()).toEqual(["ip", "phone", "user_agent"]);
+
+    // Un fbc que no tiene el formato de Meta tampoco se envía.
+    const otro = mockGoogle(FILA_OK, 200, META_OK, TIKTOK_OK);
+    await POST(pedir({ ...VALIDO, id: "11111111-2222-4333-8444-aaaaaaaaaaaa", fbc: "IwAR-sin-formato" }));
+    await correrDespues();
+    const sinFbc = JSON.parse((llamadasA(otro, "https://graph.facebook.com/")[0][1].body as URLSearchParams).get("data")!)[0];
+    expect(Object.keys(sinFbc.user_data).sort()).toEqual(["client_user_agent", "ph"]);
+    // Sin referer, la página es la raíz del sitio.
+    expect(sinFbc.event_source_url).toBe("http://localhost/");
+  });
+
+  it("sin el token de una plataforma solo se envía a la otra; sin ninguno, a nadie", async () => {
+    delete process.env.META_CAPI_TOKEN;
+    const soloTikTok = mockGoogle(FILA_OK, 200, undefined, TIKTOK_OK);
+    await POST(pedir(VALIDO));
+    expect(await correrDespues()).toEqual([{ meta: "sin token", tiktok: "enviado" }]);
+    expect(llamadasA(soloTikTok, "https://business-api.tiktok.com/")).toHaveLength(1);
+
+    delete process.env.TIKTOK_EVENTS_API_TOKEN;
+    // mockGoogle lanza con cualquier URL que no sea de Google.
+    mockGoogle();
+    await POST(pedir({ ...VALIDO, id: "11111111-2222-4333-8444-bbbbbbbbbbbb" }));
+    expect(await correrDespues()).toEqual([{ meta: "sin token", tiktok: "sin token" }]);
+  });
+
+  it("si Meta o TikTok rechazan el evento, el registro ya respondió ok y el fallo queda en el log", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    mockGoogle(
+      FILA_OK,
+      200,
+      () => Response.json({ error: { message: "Invalid OAuth access token." } }, { status: 400 }),
+      // TikTok responde los errores con HTTP 200.
+      () => Response.json({ code: 40001, message: "Access token is incorrect or has been revoked." }),
+    );
+    const res = await POST(pedir(VALIDO));
+    expect(res.status).toBe(200);
+    expect(await correrDespues()).toEqual([{ meta: "falló", tiktok: "falló" }]);
+    expect(error).toHaveBeenCalledTimes(2);
+    expect(error.mock.calls.some(([, e]) => String(e).includes("revoked"))).toBe(true);
+
+    // Una caída de red tampoco rompe nada.
+    globalThis.fetch = vi.fn(async (url: string | URL) => {
+      const u = String(url);
+      if (u.startsWith("https://oauth2.googleapis.com/token")) return Response.json({ access_token: "tok-123", expires_in: 3600 });
+      if (u.startsWith("https://sheets.googleapis.com/")) return Response.json(FILA_OK);
+      throw new TypeError("fetch failed");
+    }) as any;
+    await POST(pedir({ ...VALIDO, id: "11111111-2222-4333-8444-cccccccccccc" }));
+    expect(await correrDespues()).toEqual([{ meta: "falló", tiktok: "falló" }]);
   });
 });
 

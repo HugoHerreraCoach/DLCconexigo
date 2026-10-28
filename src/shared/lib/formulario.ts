@@ -1,5 +1,5 @@
 import type { IdRastro } from "@/config/rastros";
-import { contextoVisita } from "@/shared/lib/registro";
+import { contextoVisita, idsDeClic } from "@/shared/lib/registro";
 
 /* Formularios de registro → hoja de cálculo de leads (ver /api/formulario):
    el del hero y el del chat flotante. Lo usan los componentes y el servidor,
@@ -22,12 +22,14 @@ export type DatosFormulario = { nombre: string; celular: string; inicial: string
 
 /** Envía el formulario y espera a que la fila quede en la hoja de cálculo.
  *  Devuelve el id del registro; lanza si no se guardó. Reenviar el mismo `id`
- *  no duplica la fila. */
+ *  no duplica la fila. Lleva los ids de clic del anuncio para la conversión
+ *  que el servidor envía a Meta y a TikTok. */
 export async function enviarFormulario(id: string, datos: DatosFormulario, origen: IdFormulario = "formulario-hero"): Promise<string> {
   const res = await fetch("/api/formulario", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ id, origen, ...datos, ...contextoVisita() }),
+    // contextoVisita() primero: en la primera visita es la que guarda los ids de clic.
+    body: JSON.stringify({ id, origen, ...datos, ...contextoVisita(), ...idsDeClic() }),
   });
   const json = (await res.json().catch(() => null)) as { ok?: boolean; id?: string } | null;
   if (!res.ok || !json?.ok) throw new Error(`formulario: HTTP ${res.status}`);

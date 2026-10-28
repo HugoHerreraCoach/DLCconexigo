@@ -11,8 +11,14 @@ export type Fuente = "meta" | "tiktok" | "google" | "otro" | "directo";
  *  antes de existir `campana_id` no lo traen. */
 type Atribucion = { fuente: Fuente; campana: string | null; campana_id?: string | null };
 
+/** Ids de clic de los anuncios, para la conversión por servidor (/api/formulario):
+ *  `ttclid` de TikTok y `fbc` de Meta (el fbclid con la hora en que llegó, en el
+ *  formato `fb.1.<ms>.<fbclid>` que pide su API de conversiones). */
+type Clics = { ttclid: string | null; fbc: string | null };
+
 const CLAVE_VISITANTE = "dlc_v";
 const CLAVE_ATRIBUCION = "dlc_a";
+const CLAVE_CLICS = "dlc_c";
 
 function leer(almacen: Storage, clave: string): string | null {
   try {
@@ -69,7 +75,29 @@ function atribucion(): Atribucion {
 
   const nueva = { fuente, campana: p.get("utm_campaign"), campana_id: p.get("utm_id") };
   guardar(window.sessionStorage, CLAVE_ATRIBUCION, JSON.stringify(nueva));
+  guardar(window.sessionStorage, CLAVE_CLICS, JSON.stringify(clicsDeLaUrl()));
   return nueva;
+}
+
+function clicsDeLaUrl(): Clics {
+  const p = new URLSearchParams(typeof location !== "undefined" ? location.search : "");
+  // Un id fuera de lo normal no debe agrandar el envío del formulario.
+  const corto = (v: string | null) => (v && v.length <= 400 ? v : null);
+  const fbclid = corto(p.get("fbclid"));
+  return { ttclid: corto(p.get("ttclid")), fbc: fbclid ? `fb.1.${Date.now()}.${fbclid}` : null };
+}
+
+/** Ids de clic con que llegó el visitante en esta sesión (se guardan al entrar,
+ *  junto con la atribución). Solo los manda el formulario de registro. */
+export function idsDeClic(): Clics {
+  if (typeof window === "undefined" || !window.sessionStorage) return { ttclid: null, fbc: null };
+  const guardados = leer(window.sessionStorage, CLAVE_CLICS);
+  if (guardados) {
+    try {
+      return JSON.parse(guardados) as Clics;
+    } catch {}
+  }
+  return clicsDeLaUrl();
 }
 
 function esMovil(): boolean {

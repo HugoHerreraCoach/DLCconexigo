@@ -1,22 +1,28 @@
+import { after } from "next/server";
 import { INICIALES } from "@/config/contenido";
 import { RASTROS } from "@/config/rastros";
 import { sql } from "@/server/db";
 import { agregarFila, configHoja, filaLead } from "@/server/hoja-calculo";
 import { huellaNombre, huellaTelefono } from "@/server/nombre-huella";
+import { registroPorServidor, visitaDe } from "@/server/pixeles-servidor";
 import { nombreCampanaMeta } from "@/server/plataformas";
 import { celularPeru, FORMULARIOS } from "@/shared/lib/formulario";
+import { plantillaDe } from "@/shared/lib/plantillas";
+import { mensajeRegistro } from "@/shared/lib/whatsapp";
 
 /* Formularios de registro (hero y chat flotante) → hoja de cálculo de leads
    (src/server/hoja-calculo.ts). La respuesta se agrega como fila en la hoja y
    SOLO cuando Google confirma la fila el navegador envía la conversión a los
    píxeles (clientePotencial en src/shared/lib/pixeles.ts), con este mismo id
-   como id del evento, y después abre WhatsApp (docs/0023).
+   como id del evento, y después abre WhatsApp (docs/0023). Con la fila
+   confirmada, el servidor manda además la misma conversión, con el mismo id, a
+   las API de Meta y de TikTok (src/server/pixeles-servidor.ts, docs/0026).
 
    Contrato
    ────────
    POST /api/formulario
    Cuerpo  { "id": "<uuid del envío>", "origen", "nombre", "celular", "inicial",
-             "visitante", "fuente", "campana", "campana_id", "movil" }
+             "visitante", "fuente", "campana", "campana_id", "movil", "ttclid", "fbc" }
            · origen ∈ FORMULARIOS (src/shared/lib/formulario.ts); si falta, "formulario-hero"
            · inicial ∈ INICIALES (src/config/contenido.ts) o INICIALES_ANTERIORES. Desde
              0023 es la única pregunta: un "compra" que llegue se ignora y TIEMPO DE
@@ -25,7 +31,8 @@ import { celularPeru, FORMULARIOS } from "@/shared/lib/formulario";
              «NOMBRE DE CAMPAÑA» va el nombre de la campaña (o su id, si no se conoce): Meta
              manda el id en utm_campaign y el nombre se pide a su API; TikTok manda el nombre
              en utm_campaign y el id en utm_id (macros __CAMPAIGN_NAME__ y __CAMPAIGN_ID__).
-   200     { "ok": true, "id": "<id>" }        ← la fila quedó en la hoja (o ya estaba: mismo id)
+           · ttclid y fbc: ids de clic del anuncio (opcionales), solo para la conversión por servidor.
+   200    { "ok": true, "id": "<id>" }        ← la fila quedó en la hoja (o ya estaba: mismo id)
    400 datos inválidos · 502 Google no confirmó la fila · 503 hoja sin configurar
    El panel lo cuenta como lead en `eventos` (tipo 'lead'), sin nombre ni celular en claro. */
 
@@ -49,7 +56,7 @@ export async function POST(req: Request) {
   let cuerpo: Record<string, unknown>;
   try {
     const crudo = await req.text();
-    if (crudo.length > 2000) return Response.json({ ok: false }, { status: 413 });
+    if (crudo.length > 4000) return Response.json({ ok: false }, { status: 413 });
     cuerpo = JSON.parse(crudo);
     if (!cuerpo || typeof cuerpo !== "object") throw new Error("cuerpo no es un objeto");
   } catch {
@@ -96,12 +103,13 @@ export async function POST(req: Request) {
         ? "TIKTOK_LANDING_NVNRO_CONEXIPEMA_FINCAALGARROBO"
         : null;
 
+  const fecha = new Date();
   try {
     await agregarFila(
       hoja,
       filaLead({
         id,
-        fecha: new Date(),
+        fecha,
         nombre,
         celular,
         inicial,
@@ -115,13 +123,22 @@ export async function POST(req: Request) {
     return Response.json({ ok: false, error: "no se pudo registrar" }, { status: 502 });
   }
 
+  // La fila ya está en la hoja: la conversión sale también desde el servidor, con el
+  // mismo id que la del navegador. Corre después de responder (el visitante no espera)
+  // y no depende de que la página siga abierta cuando se abre WhatsApp.
+  const visita = visitaDe(req, cuerpo);
+  after(() => registroPorServidor({ id, origen, celular, inicial, fecha, visita }));
+
   // Registro propio para el panel. Si falla, el lead ya está en la hoja: no se le dice al visitante que falló.
+  // La plantilla del mensaje con que termina el registro (docs/0027): cuando ese mensaje llega a
+  // WhatsApp, el CRM pregunta a /api/whatsapp/mensaje de dónde vino y la landing lo encuentra por
+  // plantilla + huella del nombre. Sin ella el CRM no recibe la fuente y muestra «Directo».
   if (sql) {
     try {
       await sql`
-        INSERT INTO eventos (tipo, visitante, fuente, campana, origen, movil, datos, nombre_huella, telefono_huella, intencion_id)
+        INSERT INTO eventos (tipo, visitante, fuente, campana, origen, movil, datos, plantilla, nombre_huella, telefono_huella, intencion_id)
         VALUES ('lead', ${texto(cuerpo.visitante, 64) ?? "desconocido"}, ${fuente}, ${campana}, ${origen}, ${cuerpo.movil === true},
-                ${sql.json({ inicial })}, ${huellaNombre(nombre)}, ${huellaTelefono(celular)}, ${id})
+                ${sql.json({ inicial })}, ${plantillaDe(mensajeRegistro(nombre, inicial))}, ${huellaNombre(nombre)}, ${huellaTelefono(celular)}, ${id})
         ON CONFLICT DO NOTHING`;
     } catch (e) {
       console.error("[formulario] la fila está en la hoja pero no se guardó en eventos", e);
